@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Viagem ao Centro da Terra 2D</title>
+    <!-- Tailwind CSS para a Interface de Utilizador (UI) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #050200; font-family: 'Montserrat', sans-serif; touch-action: none; }
+        #game-canvas { display: block; width: 100vw; height: 100vh; position: absolute; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; box-shadow: inset 0 0 150px rgba(0,0,0,0.9); }
+        
+        .glass-panel {
+            background: rgba(20, 10, 10, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 100, 0, 0.3);
+            box-shadow: 0 0 20px rgba(255, 50, 0, 0.5);
+        }
+
+        .interactive { pointer-events: auto; }
+        
+        /* Botões de controlo Mobile */
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            transition: all 0.2s;
+        }
+        .control-btn:active { background: rgba(255, 255, 255, 0.4); transform: scale(0.95); }
+        
+        /* Efeito de Dano */
+        @keyframes flash-red {
+            0% { background-color: rgba(255, 0, 0, 0.6); }
+            100% { background-color: transparent; }
+        }
+        .damage-flash { animation: flash-red 0.3s ease-out; }
+    </style>
+</head>
+<body class="text-white select-none">
+
+    <!-- Ecrã de Jogo (Canvas 2D) -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Camada de Interface -->
+    <div id="ui-layer" class="flex flex-col justify-between p-4 md:p-8">
+        
+        <!-- HUD (Heads Up Display) - Topo -->
+        <div class="flex justify-between items-start">
+            <div class="glass-panel p-4 rounded-xl flex items-center gap-4 hidden transition-opacity duration-300" id="hud">
+                <div>
+                    <p class="text-xs md:text-sm text-orange-300 uppercase tracking-widest font-bold">Personagem</p>
+                    <p class="text-xl md:text-2xl font-black text-white" id="current-character">Professor</p>
+                </div>
+                <div class="h-10 w-px bg-orange-500/50"></div>
+                <div>
+                    <p class="text-xs md:text-sm text-orange-300 uppercase tracking-widest font-bold">Progresso</p>
+                    <div class="w-32 md:w-48 h-3 bg-gray-800 rounded-full mt-1 border border-gray-600 overflow-hidden shadow-inner">
+                        <div id="progress-bar" class="h-full bg-gradient-to-r from-orange-600 to-yellow-400 w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="damage-overlay" class="fixed inset-0 hidden pointer-events-none z-50"></div>
+        </div>
+
+        <!-- Ecrãs de Menu / Fim de Jogo -->
+        <div class="absolute inset-0 flex items-center justify-center interactive" id="menu-screen">
+            <div class="glass-panel p-6 md:p-8 rounded-2xl max-w-lg w-[90%] text-center transform transition-transform scale-100" id="menu-modal">
+                <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 mb-2 filter drop-shadow-[0_0_15px_rgba(255,100,0,0.8)] tracking-tight">
+                    CENTRO DA TERRA
+                </h1>
+                <p class="text-gray-300 mb-6 italic text-sm md:text-base">Inspirado na obra de Júlio Verne</p>
+                
+                <div class="bg-black/60 p-4 rounded-lg text-left mb-6 border border-gray-700 shadow-inner">
+                    <h3 class="text-orange-400 font-bold mb-3 text-lg border-b border-orange-900 pb-1">📜 INSTRUÇÕES:</h3>
+                    <ul class="text-sm text-gray-300 space-y-3">
+                        <li class="flex items-start"><span class="mr-2 text-red-500">🔥</span> <span>O labirinto possui <strong>3 níveis</strong> com perigos únicos:</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-green-500">🌱</span> <span><strong>CIMA:</strong> Plantas Carnívoras famintas.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-orange-500">🦖</span> <span><strong>MEIO:</strong> Dinossauros em fúria.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-purple-500">🪨</span> <span><strong>BAIXO:</strong> Pedras Magnéticas flutuantes.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-yellow-500">🏹</span> <span>Cuidado com as <strong>Flechas</strong> em todos os níveis!</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-blue-400">⌨️</span> <span><strong>CONTROLOS:</strong> Setas <strong>⬆️</strong> e <strong>⬇️</strong> para andar. No topo, <strong>⬆️</strong> serve para Pular!</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-cyan-400">💎</span> <span>Apanhe o <strong>Diamante</strong> no <strong>último andar</strong> para vencer.</span></li>
+                    </ul>
+                </div>
+
+                <button id="btn-start" class="w-full py-3 md:py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-black text-lg md:text-xl rounded-xl shadow-[0_0_15px_rgba(255,50,0,0.6)] transition-all transform hover:scale-105 active:scale-95">
+                    INICIAR EXPEDIÇÃO
+                </button>
+            </div>
+        </div>
+
+        <!-- Controlos no ecrã para telemóveis e desktop -->
+        <div class="absolute bottom-8 right-8 flex-col gap-4 interactive hidden md:flex" id="desktop-controls">
+            <button id="btn-up" class="control-btn w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl pb-1 shadow-lg select-none">⬆️</button>
+            <button id="btn-down" class="control-btn w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl pt-1 shadow-lg select-none">⬇️</button>
+        </div>
+        
+        <div class="fixed bottom-6 right-6 flex flex-col gap-3 interactive hidden sm:hidden" id="mobile-controls">
+            <button id="btn-up-m" class="control-btn w-14 h-14 rounded-full flex items-center justify-center text-2xl pb-1 shadow-lg select-none">⬆️</button>
+            <button id="btn-down-m" class="control-btn w-14 h-14 rounded-full flex items-center justify-center text-2xl pt-1 shadow-lg select-none">⬇️</button>
+        </div>
+
+        <!-- Botão de Pause -->
+        <div class="fixed top-4 right-4 interactive z-50 hidden" id="pause-container">
+            <button id="btn-pause" class="w-12 h-12 bg-gray-800/80 border border-gray-600 rounded-full flex items-center justify-center text-xl text-white shadow-lg backdrop-blur-md hover:bg-gray-700 transition-colors">⏸️</button>
+        </div>
+
+        <!-- Ecrã de Pause -->
+        <div class="absolute inset-0 flex items-center justify-center interactive hidden z-40 bg-black/70 backdrop-blur-sm" id="pause-screen">
+            <div class="glass-panel p-6 md:p-8 rounded-2xl max-w-sm w-[90%] text-center transform scale-100">
+                <h2 class="text-3xl font-black text-white mb-6">JOGO PAUSADO</h2>
+                <div class="flex flex-col gap-4">
+                    <button id="btn-resume" class="w-full py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(0,255,0,0.3)] transition-all transform hover:scale-105">
+                        CONTINUAR ▶️
+                    </button>
+                    <button id="btn-restart" class="w-full py-3 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(255,0,0,0.3)] transition-all transform hover:scale-105">
+                        VOLTAR AO INÍCIO 🏠
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Motor do Jogo em JS -->
+    <script>
+        // --- CONFIGURAÇÕES E VARIÁVEIS GLOBAIS ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Elementos da UI
+        const uiMenu = document.getElementById('menu-screen');
+        const uiMenuModal = document.getElementById('menu-modal');
+        const btnStart = document.getElementById('btn-start');
+        const hud = document.getElementById('hud');
+        const txtCharacter = document.getElementById('current-character');
+        const progressBar = document.getElementById('progress-bar');
+        const damageOverlay = document.getElementById('damage-overlay');
+        const mobileControls = document.getElementById('mobile-controls');
+        const desktopControls = document.getElementById('desktop-controls');
+        const pauseContainer = document.getElementById('pause-container');
+        const pauseScreen = document.getElementById('pause-screen');
+        const btnPause = document.getElementById('btn-pause');
+        const btnResume = document.getElementById('btn-resume');
+        const btnRestart = document.getElementById('btn-restart');
+
+        // Estado do Jogo
+        let gameState = 'MENU'; // MENU, PLAYING, TRANSITION, GAMEOVER, VICTORY, DYING, PAUSED
+        let currentCharacter = 1; // 1 = Professor, 2 = Axel
+        let currentPhase = 1; // 1 = Dia, 2 = Noite (Escuridão com lanterna)
+        let deathTimer = 0;
+        let killerType = null;
+        let killerRef = null;
+
+        // Sistema de Progresso
+        let distance = 0;
+        const WIN_DISTANCE = 30000; // Ajustado para durar ~1 minuto de jogo
+        let gameSpeed = 5;
+        let baseSpeed = 5;
+
+        // Estrutura do Mundo
+        const LÁPIDE_OFFSET = 150; // Distância do topo
+        const GAP_ENTRE_ANDARES = 120;
+        // Posição Y de cada chão (0=Baixo, 1=Meio, 2=Cima)
+        let lanesY = []; 
+        let cameraY = 0;
+        let targetCameraY = 0;
+
+        // Entidades
+        let player = {
+            x: window.innerWidth * 0.15,
+            y: 0,
+            targetY: 0,
+            width: 40,
+            height: 70,
+            lane: 1, // Começa no meio
+            colorBody: '#6b7280', // Professor grey
+            colorHead: '#fed7aa', // Peach
+            hasHat: true,
+            isInvincible: false,
+            jumpOffset: 0,
+            jumpVelocity: 0,
+            isJumping: false
+        };
+
+        let arrows = [];
+        let plants = [];
+        let dinosaurs = [];
+        let stones = [];
+        let particles = [];
+        let diamond = null;
+        let wallX = -1; // Posição da parede de fim do túnel
+        
+        let frames = 0;
+        let baseHazardSpawnRate = 120;
+        let currentHazardSpawnRate = 120;
+
+        // --- SISTEMA DE ÁUDIO SINTÉTICO (Web Audio API) ---
+        let audioCtx;
+        let bgmInterval;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                startBGM();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playJumpSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playVictorySound() {
+            if (!audioCtx) return;
+            // Arpejo alegre: Dó, Mi, Sol, Dó alto
+            const notes = [523.25, 659.25, 783.99, 1046.50]; 
+            let startTime = audioCtx.currentTime;
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, startTime + i * 0.15);
+                gain.gain.linearRampToValueAtTime(0.001, startTime + i * 0.15 + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(startTime + i * 0.15);
+                osc.stop(startTime + i * 0.15 + 0.15);
+            });
+        }
+
+        function startBGM() {
+            if (bgmInterval) return;
+            let noteIndex = 0;
+            // Loop de batida de aventura (graves de tensão)
+            bgmInterval = setInterval(() => {
+                if (gameState !== 'PLAYING' && gameState !== 'TRANSITION') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                
+                // Alterna entre duas notas muito graves para simular o perigo do núcleo da Terra
+                osc.frequency.value = (noteIndex % 4 === 0) ? 65.41 : 73.42; // Dó2 ou Ré2
+                
+                // Envelope de volume (batida seca)
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                
+                // Filtro passa-baixo para deixar o som abafado (como se viesse do fundo das cavernas)
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+                noteIndex++;
+            }, 300); // 300ms por batida
+        }
+
+        const nightCanvas = document.createElement('canvas');
+        const nightCtx = nightCanvas.getContext('2d');
+
+        // --- INICIALIZAÇÃO ---
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            nightCanvas.width = canvas.width;
+            nightCanvas.height = canvas.height;
+            
+            // Recalcular posições das pistas com base no centro do ecrã
+            const startY = (canvas.height / 2) + GAP_ENTRE_ANDARES;
+            lanesY = [
+                startY,                     // 0: Baixo
+                startY - GAP_ENTRE_ANDARES, // 1: Meio
+                startY - GAP_ENTRE_ANDARES * 2 // 2: Cima
+            ];
+            
+            if (gameState === 'MENU') {
+                player.targetY = lanesY[player.lane];
+                player.y = player.targetY;
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Controlos
+        function moveUp() {
+            if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
+                if (player.lane < 2) {
+                    player.lane++;
+                    player.targetY = lanesY[player.lane];
+                    targetCameraY += GAP_ENTRE_ANDARES * 0.6; // Desce a câmara
+                    createJumpParticles();
+                    playJumpSound();
+                } else if (player.lane === 2 && !player.isJumping) {
+                    // No andar superior, tentar subir funciona como pulo
+                    player.isJumping = true;
+                    player.jumpVelocity = -14; // Velocidade inicial do pulo
+                    createJumpParticles();
+                    playJumpSound();
+                }
+            }
+        }
+
+        function moveDown() {
+            if ((gameState === 'PLAYING' || gameState === 'TRANSITION') && player.lane > 0) {
+                player.lane--;
+                player.targetY = lanesY[player.lane];
+                targetCameraY -= GAP_ENTRE_ANDARES * 0.6; // Sobe a câmara
+                createJumpParticles();
+                playJumpSound();
+            }
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseScreen.classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseScreen.classList.add('hidden');
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                togglePause();
+            } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                moveUp();
+            } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                moveDown();
+            } else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+                togglePause();
+            }
+        });
+
+        // Botões visuais
+        const bindBtn = (id, action) => {
+            const btn = document.getElementById(id);
+            if(btn) {
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, {passive: false});
+                btn.addEventListener('mousedown', action);
+            }
+        };
+        bindBtn('btn-up', moveUp); bindBtn('btn-down', moveDown);
+        bindBtn('btn-up-m', moveUp); bindBtn('btn-down-m', moveDown);
+
+        btnPause.addEventListener('click', togglePause);
+        btnResume.addEventListener('click', togglePause);
+        btnRestart.addEventListener('click', () => {
+            pauseScreen.classList.add('hidden');
+            currentPhase = 1;
+            startGame(1);
+        });
+
+        btnStart.addEventListener('click', () => startGame(1));
+
+        // --- LÓGICA PRINCIPAL ---
+
+        function startGame(phase = 1) {
+            initAudio(); // Inicia o contexto de áudio após interacção do utilizador
+
+            gameState = 'PLAYING';
+            currentPhase = phase;
+            currentCharacter = 1;
+            distance = 0;
+            player.lane = 1;
+            gameSpeed = 6;
+            hazardSpawnRate = 120;
+            arrows = [];
+            plants = [];
+            dinosaurs = [];
+            stones = [];
+            particles = [];
+            diamond = null;
+            wallX = -1;
+            
+            player.targetY = lanesY[player.lane];
+            player.y = player.targetY;
+            targetCameraY = 0; // Câmara central
+            
+            updatePlayerVisuals();
+
+            // UI Updates
+            uiMenu.classList.add('hidden');
+            hud.classList.remove('hidden');
+            desktopControls.classList.remove('hidden');
+            mobileControls.classList.remove('hidden');
+            pauseContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+        }
+
+        function updatePlayerVisuals() {
+            if (currentCharacter === 1) {
+                // Professor Lidenbrock
+                txtCharacter.innerText = "Professor";
+                txtCharacter.className = "text-xl md:text-2xl font-black text-gray-300";
+                player.colorBody = '#4b5563'; // Fato escuro
+                player.colorHead = '#fed7aa'; // Pele clara
+                player.hasHat = true;
+            } else {
+                // Sobrinho Axel
+                txtCharacter.innerText = "Axel (Sobrinho)";
+                txtCharacter.className = "text-xl md:text-2xl font-black text-blue-400";
+                player.colorBody = '#2563eb'; // Casaco azul
+                player.colorHead = '#ffedd5'; // Pele mais clara
+                player.hasHat = false;
+            }
+        }
+
+        function spawnArrow() {
+            const lane = Math.floor(Math.random() * 3);
+            const inAir = Math.random() > 0.5; // 50% de chance de voar alto para acertar quem tenta pular
+            arrows.push({
+                x: canvas.width + 100,
+                y: lanesY[lane] - player.height / 2 - (inAir ? 60 : 0), // Aponta para o centro do corpo ou alto
+                width: 60,
+                height: 6,
+                lane: lane,
+                speed: gameSpeed * (2.2 + Math.random() * 0.8), // Flechas agora significativamente mais rápidas
+                active: true
+            });
+        }
+
+        function spawnPlant() {
+            plants.push({
+                x: canvas.width + 100,
+                y: lanesY[2], // Camada de cima
+                width: 50,
+                height: 60,
+                lane: 2,
+                active: true,
+                mouthOpen: 0
+            });
+        }
+
+        function spawnDinosaur() {
+            dinosaurs.push({
+                x: canvas.width + 100,
+                y: lanesY[1], // Camada do meio
+                width: 70,
+                height: 50,
+                lane: 1,
+                speed: gameSpeed * 1.3,
+                active: true,
+                frame: 0
+            });
+        }
+
+        function spawnStone() {
+            stones.push({
+                x: canvas.width + 100,
+                y: lanesY[0] - 40 + (Math.random() - 0.5) * 80, // Camada de baixo, flutuando
+                radius: 15 + Math.random() * 15,
+                lane: 0,
+                vx: -(gameSpeed + 2 + Math.random() * 3),
+                vy: (Math.random() - 0.5) * 4,
+                active: true
+            });
+        }
+
+        function spawnDiamond() {
+            diamond = {
+                x: canvas.width + 400,
+                y: lanesY[0] - 40, // O Diamante agora surge APENAS no andar inferior (0) perto da lava
+                radius: 30,
+                angle: 0
+            };
+            wallX = diamond.x + 250; // Posiciona a parede depois do diamante
+        }
+
+        function createJumpParticles() {
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: player.x + player.width / 2,
+                    y: player.y,
+                    vx: (Math.random() - 0.5) * 4 - gameSpeed/2, // Movimento para trás relativo ao chão
+                    vy: Math.random() * -3,
+                    life: 1.0,
+                    color: '#57534e'
+                });
+            }
+        }
+
+        function takeDamage(type, ref) {
+            if (player.isInvincible || gameState !== 'PLAYING') return;
+
+            // Iniciar animação de morte/dano
+            gameState = 'DYING';
+            deathTimer = 0;
+            killerType = type;
+            killerRef = ref;
+
+            // Flash no ecrã
+            damageOverlay.classList.remove('hidden');
+            damageOverlay.classList.add('damage-flash');
+            setTimeout(() => {
+                damageOverlay.classList.remove('damage-flash');
+                damageOverlay.classList.add('hidden');
+            }, 300);
+        }
+
+        function gameOver(win) {
+            if (!win && currentCharacter === 1) {
+                // Se era o Professor, troca para o Axel em vez de Game Over
+                currentCharacter = 2;
+                gameState = 'TRANSITION';
+                player.isInvincible = true;
+                
+                // Explode o chapéu em partículas
+                for (let i = 0; i < 15; i++) {
+                    particles.push({
+                        x: player.x, y: player.y - player.height,
+                        vx: (Math.random() - 0.5) * 10 - gameSpeed,
+                        vy: (Math.random() - 1) * 10,
+                        life: 1.0, color: '#3f3f46' // Cor do chapéu
+                    });
+                }
+
+                setTimeout(() => {
+                    updatePlayerVisuals();
+                    gameState = 'PLAYING';
+                    // Reposicionar jogador e afastar perigos
+                    player.targetY = lanesY[player.lane];
+                    player.y = player.targetY;
+                    arrows.forEach(a => a.x += 400);
+                    plants.forEach(p => p.x += 400);
+                    dinosaurs.forEach(d => d.x += 400);
+                    
+                    setTimeout(() => { player.isInvincible = false; }, 2000);
+                }, 1000);
+                return;
+            }
+
+            gameState = win && currentPhase === 2 ? 'VICTORY' : (win ? 'TRANSITION' : 'GAMEOVER');
+            
+            uiMenu.classList.remove('hidden');
+            hud.classList.add('hidden');
+            desktopControls.classList.add('hidden');
+            mobileControls.classList.add('hidden');
+            pauseContainer.classList.add('hidden');
+            
+            if (win) {
+                if (currentPhase === 1) {
+                    uiMenuModal.innerHTML = `
+                        <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-300 to-purple-600 mb-4 filter drop-shadow-[0_0_10px_rgba(100,0,255,0.8)]">
+                            FASE 2: A ESCURIDÃO
+                        </h1>
+                        <p class="text-xl text-gray-200 mb-6">O diamante iluminará o caminho escuro.</p>
+                        <p class="text-sm md:text-base text-gray-400 mb-8">Agora os perigos escondem-se na noite. Prepare a lanterna.</p>
+                        <button onclick="startGame(2)" class="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xl rounded-xl shadow-[0_0_15px_rgba(100,0,255,0.6)] transition-all transform hover:scale-105">
+                            INICIAR FASE 2
+                        </button>
+                    `;
+                } else {
+                    uiMenuModal.innerHTML = `
+                        <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 mb-4 filter drop-shadow-[0_0_10px_rgba(0,255,255,0.8)]">
+                            VITÓRIA ABSOLUTA!
+                        </h1>
+                        <p class="text-xl text-gray-200 mb-6">Escapou da escuridão do Centro da Terra.</p>
+                        <p class="text-sm md:text-base text-gray-400 mb-8">Júlio Verne estaria orgulhoso da sua bravura épica.</p>
+                        <button onclick="startGame(1)" class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xl rounded-xl shadow-[0_0_15px_rgba(0,255,255,0.6)] transition-all transform hover:scale-105">
+                            NOVA EXPEDIÇÃO
+                        </button>
+                    `;
+                }
+            } else {
+                uiMenuModal.innerHTML = `
+                    <h1 class="text-4xl md:text-5xl font-black text-red-600 mb-2 filter drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">
+                        EXPEDIÇÃO PERDIDA
+                    </h1>
+                    <p class="text-gray-300 mb-6 text-sm md:text-base">A jornada sucumbiu nas profundezas escuras.</p>
+                    <button onclick="startGame(1)" class="w-full py-4 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-black text-xl rounded-xl shadow-[0_0_15px_rgba(255,0,0,0.6)] transition-all transform hover:scale-105">
+                        TENTAR NOVAMENTE
+                    </button>
+                `;
+            }
+        }
+
+        // --- SISTEMA DE RENDERIZAÇÃO (CANVAS) ---
+
+        function drawNightAndFlashlight() {
+            if (currentPhase !== 2) return;
+            
+            // Fundo escuro cobrindo tudo (escuridão noturna) num canvas temporário
+            nightCtx.clearRect(0, 0, nightCanvas.width, nightCanvas.height);
+            nightCtx.fillStyle = 'rgba(2, 6, 23, 0.95)';
+            nightCtx.fillRect(0, 0, nightCanvas.width, nightCanvas.height);
+            
+            // Posição da lanterna na mão do jogador
+            const currentY = player.y + player.jumpOffset;
+            const px = player.x + player.width;
+            
+            // Adicionar a translação da câmera Y à coordenada Y para posicionar no ecrã real
+            const py = currentY - player.height / 2 + 15 + Math.round(cameraY);
+            
+            // Cone de luz (máscara para revelar o cenário através da escuridão)
+            nightCtx.globalCompositeOperation = 'destination-out';
+            
+            const gradient = nightCtx.createRadialGradient(px, py, 10, px + 700, py, 800);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.9)');
+            gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            nightCtx.fillStyle = gradient;
+            nightCtx.beginPath();
+            nightCtx.moveTo(px - 10, py);
+            nightCtx.arc(px, py, 900, -Math.PI/5.5, Math.PI/5.5);
+            nightCtx.lineTo(px - 10, py);
+            nightCtx.fill();
+            
+            // Iluminar a área próxima ao jogador (para ver onde pisa)
+            const backGlow = nightCtx.createRadialGradient(px, py, 0, px, py, 90);
+            backGlow.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            backGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            nightCtx.fillStyle = backGlow;
+            nightCtx.beginPath();
+            nightCtx.arc(px, py, 90, 0, Math.PI*2);
+            nightCtx.fill();
+            
+            nightCtx.globalCompositeOperation = 'source-over';
+            
+            // Agora desenha esse canvas escuro por cima do jogo normal
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reseta a matriz para desenhar fixo na tela
+            ctx.drawImage(nightCanvas, 0, 0);
+            ctx.restore();
+            
+            // Desenhar a lanterna física na mão do jogador (sujeita a cameraY original do ctx)
+            ctx.save();
+            const localPy = currentY - player.height / 2 + 15;
+            ctx.fillStyle = '#111';
+            ctx.fillRect(px - 15, localPy - 6, 25, 12);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(px + 10, localPy - 6, 6, 12);
+            
+            const glow = ctx.createRadialGradient(px + 15, localPy, 0, px + 15, localPy, 30);
+            glow.addColorStop(0, 'rgba(251, 191, 36, 0.6)');
+            glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(px + 15, localPy, 30, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawBackground() {
+            // 1. ZONA SUPERIOR (Céu / Fora da Caverna)
+            const skyBottom = lanesY[2];
+            const skyGrad = ctx.createLinearGradient(0, skyBottom - 600, 0, skyBottom);
+            if (currentPhase === 2) {
+                skyGrad.addColorStop(0, '#020617'); // Noite Escura
+                skyGrad.addColorStop(1, '#1e1b4b');
+            } else {
+                skyGrad.addColorStop(0, '#0f172a'); 
+                skyGrad.addColorStop(1, '#38bdf8'); // Dia
+            }
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, skyBottom - 2000, canvas.width, 2000);
+
+            if (currentPhase === 2) {
+                // Estrelas
+                ctx.fillStyle = 'white';
+                for(let i=0; i<40; i++) {
+                    const sx = (i * 90 - distance * 0.005) % canvas.width;
+                    const trueX = sx < 0 ? sx + canvas.width : sx;
+                    const sy = skyBottom - 100 - (i * 47) % 400;
+                    if (i % 3 === 0 && frames % 30 < 15) continue; // cintilação
+                    ctx.fillRect(trueX, sy, 2, 2);
+                }
+            }
+
+            // Nuvens estilizadas
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            const cloudSpacing = 400;
+            const totalCloudWidth = 8 * cloudSpacing;
+            for(let i=0; i<8; i++) {
+                let cx = (i * cloudSpacing - distance * 0.05) % totalCloudWidth;
+                if (cx < -200) cx += totalCloudWidth;
+                let cy = skyBottom - 150 + (i % 3 * 40);
+                ctx.beginPath();
+                ctx.arc(cx, cy, 50, 0, Math.PI*2);
+                ctx.arc(cx + 40, cy - 30, 60, 0, Math.PI*2);
+                ctx.arc(cx + 80, cy, 45, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // 2. ZONA CENTRAL (Dentro da Caverna)
+            const caveGrad = ctx.createLinearGradient(0, lanesY[2], 0, lanesY[0] + 100);
+            caveGrad.addColorStop(0, '#1c1917'); 
+            caveGrad.addColorStop(0.5, '#0c0a09'); 
+            caveGrad.addColorStop(1, '#2a0a00'); 
+            ctx.fillStyle = caveGrad;
+            ctx.fillRect(0, lanesY[2], canvas.width, 2000); 
+
+            // Estalactites fluidas
+            ctx.fillStyle = '#0f0a08';
+            const stalactiteSpacing = 150;
+            const totalStalactiteWidth = 25 * stalactiteSpacing;
+            for (let i = 0; i < 25; i++) {
+                let x = (i * stalactiteSpacing - distance * 0.25) % totalStalactiteWidth;
+                if (x < -100) x += totalStalactiteWidth;
+                ctx.beginPath();
+                ctx.moveTo(x, lanesY[2]);
+                ctx.lineTo(x + 25, lanesY[2] + 60 + (Math.sin(i * 13.5) * 30)); 
+                ctx.lineTo(x + 50, lanesY[2]);
+                ctx.fill();
+            }
+            
+            // Textura de Rocha no Fundo fluida e aprimorada
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = '#f87171'; // tom avermelhado subtil para contraste
+            const texSpacing = 250;
+            const totalTexWidth = 25 * texSpacing;
+            for (let i = 0; i < 25; i++) {
+                let rx = (i * texSpacing - distance * 0.15) % totalTexWidth;
+                if (rx < -100) rx += totalTexWidth;
+                const ry = lanesY[2] + (i * 50) % 400;
+                ctx.beginPath();
+                ctx.arc(rx, ry, 20 + (i%3)*10, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawLava(time) {
+            const lavaY = lanesY[0] + 60;
+            
+            // Fumos de calor fluidos
+            ctx.fillStyle = 'rgba(255, 100, 0, 0.08)';
+            const smokeSpacing = 300;
+            const totalSmokeWidth = 10 * smokeSpacing;
+            for(let i=0; i<10; i++) {
+                let fx = (i * smokeSpacing - distance * 0.1 + time * 50) % totalSmokeWidth;
+                if (fx < -150) fx += totalSmokeWidth;
+                let fy = lavaY - (time * 50 + i * 30) % 200;
+                ctx.beginPath();
+                ctx.arc(fx, fy, 50 + Math.sin(time + i)*20, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            const lavaGrad = ctx.createLinearGradient(0, lavaY, 0, lavaY + 200);
+            lavaGrad.addColorStop(0, '#ff4500'); 
+            lavaGrad.addColorStop(0.5, '#dc2626');
+            lavaGrad.addColorStop(1, '#450a0a'); 
+            
+            ctx.fillStyle = lavaGrad;
+            ctx.beginPath();
+            ctx.moveTo(-50, canvas.height + 1000); 
+            ctx.lineTo(-50, lavaY);
+            
+            for (let x = -50; x <= canvas.width + 50; x += 20) {
+                const waveDist = distance * 0.05;
+                const yOffset = Math.sin((x + waveDist) * 0.02 + time * 2) * 15 + Math.cos((x + waveDist) * 0.01 + time * 3) * 10;
+                ctx.lineTo(x, lavaY + yOffset);
+            }
+            
+            ctx.lineTo(canvas.width + 50, canvas.height + 1000);
+            ctx.closePath();
+            ctx.fill();
+
+            // Bolhas na lava fluidas
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            const bubbleSpacing = 350;
+            const totalBubbleWidth = 8 * bubbleSpacing;
+            for(let i=0; i<8; i++) {
+                let bx = (i * bubbleSpacing - distance * 0.08 + time * 40) % totalBubbleWidth;
+                if (bx < -50) bx += totalBubbleWidth;
+                let by = lavaY + 25 + Math.sin(time + i)*15;
+                ctx.beginPath();
+                ctx.arc(bx, by, 6 + Math.abs(Math.sin(time*2 + i)*12), 0, Math.PI*2);
+                ctx.stroke();
+            }
+        }
+
+        function drawPlatforms() {
+            const floorOffset = distance % 80;
+
+            lanesY.forEach((y, index) => {
+                let colorShadow, colorTop, colorTexture, colorDetail;
+
+                if (index === 2) {
+                    colorShadow = '#1f2937'; 
+                    colorTop = '#166534'; 
+                    colorTexture = '#14532d';
+                    colorDetail = '#064e3b';
+                } else if (index === 1) {
+                    colorShadow = '#0c0a09'; 
+                    colorTop = '#442a1d'; 
+                    colorTexture = '#2d1a12';
+                    colorDetail = '#1c100b';
+                } else {
+                    colorShadow = '#450a0a'; 
+                    colorTop = '#991b1b'; 
+                    colorTexture = '#7f1d1d';
+                    colorDetail = '#450a0a';
+                }
+
+                ctx.fillStyle = colorShadow;
+                ctx.fillRect(0, y, canvas.width, 45);
+
+                ctx.fillStyle = colorTop;
+                ctx.fillRect(0, y, canvas.width, 12);
+                
+                // Textura Rochosa Detalhada Fluida
+                for (let i = -80; i < canvas.width + 160; i += 80) {
+                    let rx = i - floorOffset;
+                    ctx.fillStyle = colorTexture;
+                    ctx.fillRect(rx, y + 12, 50, 25);
+                    
+                    // Pequenas fendas/detalhes
+                    ctx.fillStyle = colorDetail;
+                    ctx.fillRect(rx + 10, y + 15, 20, 3);
+                    ctx.fillRect(rx + 30, y + 25, 10, 3);
+                }
+                
+                // Brilhos
+                if (index === 0) {
+                    ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
+                    ctx.fillRect(0, y + 40, canvas.width, 5);
+                }
+            });
+        }
+
+        function drawPlayer(time) {
+            if (player.isInvincible && Math.floor(time * 10) % 2 === 0) return;
+
+            const currentY = player.y + player.jumpOffset;
+
+            if (gameState === 'DYING' && killerType === 'plant') {
+                const scale = Math.max(0, 1 - deathTimer / 40);
+                if (scale <= 0 || deathTimer > 25) return;
+                ctx.save();
+                ctx.translate(player.x + player.width/2, currentY - player.height/2);
+                ctx.scale(scale, scale);
+                ctx.translate(-(player.x + player.width/2), -(currentY - player.height/2));
+            }
+
+            const px = player.x;
+            const py = currentY;
+            const w = player.width;
+            const h = player.height;
+            const bounce = (gameState === 'PLAYING' || gameState === 'TRANSITION') ? Math.abs(Math.sin(time * 15)) * 6 : 0;
+            const swingFront = Math.sin(time * 15) * 15;
+            const swingBack = Math.sin(time * 15 + Math.PI) * 15;
+
+            // Sombra
+            if (!(gameState === 'DYING' && killerType === 'plant' && deathTimer > 25)) {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(px + w/2, py, w/2, 5, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Braço/Perna Traseiros
+            ctx.strokeStyle = player.hasHat ? '#374151' : '#1e3a8a'; 
+            ctx.lineWidth = 7;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(px + w/2, py - h + bounce + 15);
+            ctx.lineTo(px + w/2 + swingBack, py - h + bounce + 40);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(px + w/2 - 5, py - 20 + bounce);
+            ctx.lineTo(px + w/2 - 5 + swingBack, py);
+            ctx.stroke();
+
+            // MOCHILA (MAIOR E COM DETALHES)
+            ctx.fillStyle = '#3d2616'; 
+            ctx.beginPath();
+            ctx.roundRect(px - 22, py - h + bounce + 2, 28, 48, 8);
+            ctx.fill();
+            // Fivelas da mochila
+            ctx.fillStyle = '#5c4033';
+            ctx.fillRect(px - 22, py - h + bounce + 17, 28, 6);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(px - 18, py - h + bounce + 18, 4, 4);
+            ctx.fillRect(px - 2, py - h + bounce + 18, 4, 4);
+
+            // CORPO COM TEXTURA
+            ctx.fillStyle = player.colorBody;
+            ctx.beginPath();
+            ctx.roundRect(px, py - h + bounce, w, h - 20, 10);
+            ctx.fill();
+            // Textura de "tecido" (pequenos pontos)
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            for(let i=0; i<5; i++) {
+                ctx.fillRect(px + 5 + i*6, py - h + bounce + 10, 2, 2);
+                ctx.fillRect(px + 5 + i*6, py - h + bounce + 30, 2, 2);
+            }
+
+            // CABEÇA
+            ctx.fillStyle = player.colorHead;
+            ctx.beginPath();
+            ctx.arc(px + w/2 + 5, py - h + bounce - 5, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.fillRect(px + w/2 + 12, py - h + bounce - 10, 4, 4);
+
+            // ACESSÓRIOS
+            if (player.hasHat) {
+                ctx.fillStyle = '#292524';
+                ctx.fillRect(px + w/2 - 15, py - h + bounce - 20, 35, 5); 
+                ctx.fillRect(px + w/2 - 10, py - h + bounce - 35, 25, 15); 
+            } else {
+                ctx.fillStyle = '#451a03';
+                ctx.beginPath();
+                ctx.arc(px + w/2 + 3, py - h + bounce - 10, 16, Math.PI, Math.PI*2);
+                ctx.fill();
+            }
+
+            // Membros Dianteiros
+            ctx.strokeStyle = player.colorBody;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(px + w/2 + 5, py - 20 + bounce);
+            ctx.lineTo(px + w/2 + 5 + swingFront, py);
+            ctx.stroke();
+
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(px + w/2, py - h + bounce + 15);
+            ctx.lineTo(px + w/2 + swingFront, py - h + bounce + 40);
+            ctx.stroke();
+
+            // Mãos
+            ctx.fillStyle = player.colorHead;
+            ctx.beginPath();
+            ctx.arc(px + w/2 + swingBack, py - h + bounce + 40, 3.5, 0, Math.PI * 2);
+            ctx.arc(px + w/2 + swingFront, py - h + bounce + 40, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (gameState === 'DYING' && killerType === 'plant') ctx.restore();
+        }
+
+        function drawTunnelWall() {
+            if (wallX === -1) return;
+            
+            // Desenha uma parede de rocha gigante que bloqueia o caminho de forma visual
+            const wallGrad = ctx.createLinearGradient(wallX, 0, wallX + 500, 0);
+            wallGrad.addColorStop(0, '#292524');
+            wallGrad.addColorStop(1, '#000000'); // Fica completamente escuro mais para dentro
+            
+            ctx.fillStyle = wallGrad;
+            ctx.beginPath();
+            ctx.moveTo(wallX + 50, lanesY[2] - 300);
+            for(let y = lanesY[2] - 300; y < lanesY[0] + 300; y += 40) {
+                ctx.lineTo(wallX + (Math.sin(y*0.05)*30), y);
+            }
+            ctx.lineTo(wallX + 4000, lanesY[0] + 300); // Cobre toda a direita da tela, impossibilitando ver galerias
+            ctx.lineTo(wallX + 4000, lanesY[2] - 300);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Detalhes e texturas da parede
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 5;
+            for(let i=0; i<15; i++) {
+                ctx.beginPath();
+                ctx.moveTo(wallX + 40 + (i%2)*20, lanesY[2] + i*60 - 100);
+                ctx.lineTo(wallX + 120, lanesY[2] + i*60 - 80);
+                ctx.stroke();
+            }
+            
+            // Reflexo suave da lava na base da parede
+            ctx.fillStyle = 'rgba(255, 69, 0, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(wallX + 30, lanesY[0] + 100);
+            ctx.lineTo(wallX + 4000, lanesY[0] + 100);
+            ctx.lineTo(wallX + 4000, lanesY[0] - 50);
+            ctx.lineTo(wallX + 30, lanesY[0] - 50);
+            ctx.fill();
+        }
+
+        function drawDiamond() {
+            if (!diamond) return;
+            
+            ctx.save();
+            ctx.translate(diamond.x, diamond.y);
+            const floatY = Math.sin(frames * 0.05) * 12;
+            
+            // Brilho intenso pulsante
+            const pulse = 0.5 + Math.abs(Math.sin(frames * 0.05)) * 0.5;
+            const gradient = ctx.createRadialGradient(0, floatY, 0, 0, floatY, diamond.radius * 4);
+            gradient.addColorStop(0, `rgba(34, 211, 238, ${0.8 * pulse})`);
+            gradient.addColorStop(0.4, `rgba(6, 182, 212, ${0.4 * pulse})`);
+            gradient.addColorStop(1, 'rgba(8, 145, 178, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(0, floatY, diamond.radius * 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Sombra projetada no chão
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(0, 40, diamond.radius, diamond.radius/3, 0, 0, Math.PI*2);
+            ctx.fill();
+
+            // Estrutura do Diamante 3D
+            ctx.fillStyle = '#06b6d4'; // Face direita
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius);
+            ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY + diamond.radius);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#e0f2fe'; // Face superior direita (mais clara)
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius);
+            ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY - diamond.radius/3);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#0891b2'; // Face inferior direita (mais escura)
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius/3);
+            ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY + diamond.radius);
+            ctx.closePath();
+            ctx.fill();
+
+            // Faces esquerdas
+            ctx.fillStyle = '#22d3ee'; // Face esquerda
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius);
+            ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY + diamond.radius);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#bae6fd'; // Face superior esquerda
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius);
+            ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY - diamond.radius/3);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#0e7490'; // Face inferior esquerda
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius/3);
+            ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(0, floatY + diamond.radius);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Arestas brilhantes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - diamond.radius);
+            ctx.lineTo(0, floatY + diamond.radius);
+            ctx.moveTo(-diamond.radius, floatY - diamond.radius/3);
+            ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // --- REESTO DO CÓDIGO DE DESENHO (MANTIDO) ---
+        function drawArrows() {
+            arrows.forEach(arr => {
+                if(!arr.active) return;
+                ctx.fillStyle = '#5c4033';
+                ctx.fillRect(arr.x, arr.y - arr.height/2, arr.width, arr.height);
+                ctx.fillStyle = '#d1d5db';
+                ctx.beginPath();
+                ctx.moveTo(arr.x + arr.width, arr.y);
+                ctx.lineTo(arr.x + arr.width + 10, arr.y - 8);
+                ctx.lineTo(arr.x + arr.width + 10, arr.y + 8);
+                ctx.fill();
+                ctx.fillStyle = '#9ca3af';
+                ctx.beginPath();
+                ctx.moveTo(arr.x, arr.y - arr.height);
+                ctx.lineTo(arr.x - 15, arr.y);
+                ctx.lineTo(arr.x, arr.y + arr.height);
+                ctx.fill();
+            });
+        }
+
+        function drawPlants() {
+            plants.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                let headX = 5, headY = -50, stemControlX = 0;
+                let mouth = Math.abs(Math.sin(frames * 0.1)) * 20;
+                if (gameState === 'DYING' && killerRef === p) {
+                    mouth = 40;
+                    const progress = Math.min(1, deathTimer / 30);
+                    headX = (player.x - p.x) * progress;
+                    headY = (player.y - p.y - 20) * progress;
+                    stemControlX = headX * 1.5;
+                    if (deathTimer > 20) {
+                        player.x += (p.x + headX - player.x) * 0.2;
+                        player.y += (p.y + headY - player.y) * 0.2;
+                    }
+                }
+                ctx.fillStyle = '#16a34a';
+                ctx.beginPath(); ctx.ellipse(-15, -10, 12, 6, Math.PI / 4, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(25, -15, 14, 7, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#166534'; ctx.lineWidth = 12; ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(5, 0); ctx.quadraticCurveTo(stemControlX, headY, headX, headY); ctx.stroke();
+                ctx.save(); ctx.translate(headX, headY);
+                if (gameState === 'DYING' && killerRef === p) {
+                    const angle = Math.atan2(player.y - (p.y + headY), player.x - (p.x + headX));
+                    ctx.rotate(angle + Math.PI/2);
+                }
+                ctx.fillStyle = '#b91c1c';
+                ctx.beginPath(); ctx.arc(0, -mouth/2, 25, Math.PI, 0); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, mouth/2, 25, 0, Math.PI); ctx.fill();
+                ctx.fillStyle = 'white';
+                for(let i=-1; i<=1; i++) {
+                    ctx.beginPath(); ctx.moveTo(i*12 - 4, -mouth/2); ctx.lineTo(i*12, -mouth/2 + 10); ctx.lineTo(i*12 + 4, -mouth/2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(i*12 - 4, mouth/2); ctx.lineTo(i*12, mouth/2 - 10); ctx.lineTo(i*12 + 4, mouth/2); ctx.fill();
+                }
+                ctx.restore(); ctx.restore();
+            });
+        }
+
+        function drawDinosaurs() {
+            dinosaurs.forEach(d => {
+                ctx.save();
+                let lungeX = 0, headYOffset = 0, mouthOpen = 0, neckRotation = 0;
+                if (gameState === 'DYING' && killerRef === d) {
+                    lungeX = Math.min(40, deathTimer * 4);
+                    headYOffset = Math.sin(deathTimer * 0.8) * 15 + 10;
+                    mouthOpen = Math.abs(Math.sin(deathTimer * 0.8)) * 30;
+                    neckRotation = Math.sin(deathTimer * 0.8) * 0.2;
+                    if (deathTimer % 10 < 5) ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
+                }
+                ctx.translate(d.x + d.width - lungeX, d.y); ctx.scale(-1, 1);
+                const legSwing = Math.sin(d.frame * 2) * 15;
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(35, 0, 30, 5, 0, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#2d3a1a'; ctx.lineWidth = 10;
+                ctx.beginPath(); ctx.moveTo(30, -25); ctx.lineTo(30 + legSwing, 0); ctx.moveTo(45, -25); ctx.lineTo(45 - legSwing, 0); ctx.stroke();
+                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.ellipse(35, -40, 45, 25, 0.2, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#3f4d21'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(65, -45); ctx.lineTo(75, -35 + Math.sin(d.frame)*5); ctx.stroke();
+                ctx.save(); ctx.translate(70, -50); ctx.rotate(neckRotation); ctx.translate(0, headYOffset);
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(15, -25); ctx.lineTo(55, -25); ctx.lineTo(55, -mouthOpen/2); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(50, mouthOpen/2); ctx.lineTo(50, 0); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = 'white'; for(let i=0; i<4; i++) { ctx.fillRect(25 + i*8, -mouthOpen/2, 3, 5); ctx.fillRect(25 + i*8, mouthOpen/2, 3, -5); }
+                ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(25, -15, 4, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'black'; ctx.fillRect(25, -16, 2, 3); ctx.restore();
+                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.moveTo(10, -45); ctx.quadraticCurveTo(-30, -50 + Math.sin(d.frame)*15, -50, -10); ctx.lineTo(10, -30); ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function drawStones() {
+            stones.forEach(s => {
+                ctx.save(); ctx.translate(s.x, s.y);
+                const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, s.radius * 2);
+                glow.addColorStop(0, 'rgba(147, 51, 234, 0.4)'); glow.addColorStop(1, 'rgba(147, 51, 234, 0)');
+                ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, s.radius * 2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#1f2937'; ctx.beginPath();
+                for(let i=0; i<6; i++) {
+                    const angle = (i / 6) * Math.PI * 2; const r = s.radius * (0.8 + Math.random() * 0.4);
+                    const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+                    if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath(); ctx.fill();
+                if(frames % 5 === 0) {
+                    ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.beginPath();
+                    ctx.moveTo((Math.random()-0.5)*s.radius*2, (Math.random()-0.5)*s.radius*2);
+                    ctx.lineTo((Math.random()-0.5)*s.radius*3, (Math.random()-0.5)*s.radius*3); ctx.stroke();
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i]; ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 6, 6); ctx.globalAlpha = 1.0;
+                p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.05;
+                if(p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        // --- LOOP PRINCIPAL DO JOGO ---
+        function gameLoop() {
+            const timeSeconds = Date.now() * 0.001;
+            frames++;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
+                distance += gameSpeed;
+                
+                if (!diamond) {
+                    gameSpeed = baseSpeed + (distance / WIN_DISTANCE) * 4;
+                    // Escala a dificuldade diminuindo o intervalo de spawn de 120 para 40
+                    currentHazardSpawnRate = Math.max(40, baseHazardSpawnRate - (distance / WIN_DISTANCE) * 80);
+                }
+                
+                const progressPct = Math.min((distance / WIN_DISTANCE) * 100, 100);
+                progressBar.style.width = `${progressPct}%`;
+
+                // Lógica de Pulo
+                if (player.isJumping) {
+                    player.jumpOffset += player.jumpVelocity;
+                    player.jumpVelocity += 0.8; // Gravidade
+                    if (player.jumpOffset >= 0) {
+                        player.jumpOffset = 0;
+                        player.isJumping = false;
+                    }
+                }
+
+                player.y += (player.targetY - player.y) * 0.15;
+                cameraY += (targetCameraY - cameraY) * 0.05;
+
+                if (frames % Math.floor(currentHazardSpawnRate) === 0 && distance < WIN_DISTANCE - 500) {
+                    const rand = Math.random();
+                    if (rand < 0.25) spawnArrow();
+                    else if (rand < 0.5) spawnPlant();
+                    else if (rand < 0.75) spawnDinosaur();
+                    else spawnStone();
+                }
+
+                // FIM DO TÚNEL E DIAMANTE
+                if (distance >= WIN_DISTANCE && !diamond) {
+                    spawnDiamond();
+                    wallX = canvas.width + 100;
+                }
+                
+                if (diamond) {
+                    diamond.x -= gameSpeed;
+                    wallX -= gameSpeed;
+                    
+                    // Abranda gradualmente conforme se aproxima do jogador
+                    const distToPlayer = diamond.x - (player.x + player.width / 2);
+                    
+                    if (distToPlayer < canvas.width * 0.5) {
+                        // Abranda a velocidade
+                        gameSpeed *= 0.95;
+                        
+                        // Velocidade mínima para não travar longe demais
+                        if (gameSpeed < 1.0 && distToPlayer > 0) gameSpeed = 1.0;
+                        
+                        // Pára exatamente quando o diamante atinge o jogador horizontalmente
+                        if (distToPlayer <= 0) {
+                            gameSpeed = 0;
+                            diamond.x = player.x + player.width / 2;
+                            // A parede mantém-se fixada à frente (visualmente atrás do diamante), sem empurrar ou bloquear
+                        }
+                    }
+
+                    // Vitória: apenas se o jogador estiver no andar do diamante (lane 0) e perto dele
+                    if (player.lane === 0 && Math.abs(diamond.x - (player.x + player.width/2)) < 40 && gameState !== 'TRANSITION' && gameState !== 'VICTORY') {
+                        playVictorySound();
+                        gameOver(true);
+                    }
+                }
+
+                const checkCollision = (obj) => {
+                    if (!obj.active) return false;
+                    const currentY = player.y + player.jumpOffset;
+                    const hT = currentY - player.height, hB = currentY, hL = player.x, hR = player.x + player.width;
+                    let oL, oR, oT, oB;
+                    if (obj.radius) { oL = obj.x - obj.radius; oR = obj.x + obj.radius; oT = obj.y - obj.radius; oB = obj.y + obj.radius; }
+                    else { oL = obj.x; oR = obj.x + obj.width; oT = obj.y - obj.height; oB = obj.y; }
+                    return (oL < hR && oR > hL && oT < hB && oB > hT);
+                };
+
+                for (let i = arrows.length - 1; i >= 0; i--) {
+                    let arr = arrows[i]; arr.x -= arr.speed;
+                    if (arr.lane === player.lane && checkCollision(arr)) { arr.active = false; takeDamage('arrow', arr); }
+                    if (arr.x + 100 < 0) arrows.splice(i, 1);
+                }
+                for (let i = plants.length - 1; i >= 0; i--) {
+                    let p = plants[i]; p.x -= gameSpeed;
+                    if (p.lane === player.lane && checkCollision(p)) takeDamage('plant', p);
+                    if (p.x + 100 < 0) plants.splice(i, 1);
+                }
+                for (let i = dinosaurs.length - 1; i >= 0; i--) {
+                    let d = dinosaurs[i]; d.x -= d.speed; d.frame += 0.2;
+                    if (d.lane === player.lane && checkCollision(d)) takeDamage('dinosaur', d);
+                    if (d.x + 100 < 0) dinosaurs.splice(i, 1);
+                }
+                for (let i = stones.length - 1; i >= 0; i--) {
+                    let s = stones[i]; s.x += s.vx; s.y += s.vy;
+                    if (s.y < lanesY[0] - 100 || s.y > lanesY[0] + 20) s.vy *= -1;
+                    if (player.lane === 0 && checkCollision(s)) takeDamage('stone', s);
+                    if (s.x + 100 < 0) stones.splice(i, 1);
+                }
+            }
+
+            if (gameState === 'DYING') {
+                deathTimer++; gameSpeed *= 0.95;
+                if (deathTimer > 60) gameOver(false);
+            }
+
+            ctx.save();
+            ctx.translate(0, Math.round(cameraY));
+            drawBackground();
+            drawLava(timeSeconds);
+            drawPlatforms();
+            drawTunnelWall();
+            drawDiamond();
+            drawParticles();
+            drawPlayer(timeSeconds);
+            drawArrows(); drawPlants(); drawDinosaurs(); drawStones();
+            drawNightAndFlashlight(); // Desenha a máscara de escuridão e lanterna se for fase 2
+            ctx.restore();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciar motor de renderização
+        gameLoop();
+
+    </script>
+</body>
+</html>
