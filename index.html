@@ -204,14 +204,19 @@
             targetY: 0,
             width: 40,
             height: 70,
-            lane: 1, // Começa no meio
-            colorBody: '#6b7280', // Professor grey
-            colorHead: '#fed7aa', // Peach
+            lane: 1,
+            colorBody: '#6b7280',
+            colorHead: '#fed7aa',
             hasHat: true,
             isInvincible: false,
             jumpOffset: 0,
             jumpVelocity: 0,
-            isJumping: false
+            isJumping: false,
+            holeFallTimer: 0,
+            isFallingThroughHole: false,
+            laneChangeGrace: 0,
+            fallingToLava: false,
+            fallToLavaTimer: 0
         };
 
         let arrows = [];
@@ -230,6 +235,7 @@
         let playerFalling = false;
         let holeSpawnTimer = 0;
         let lightningSpawnTimer = 0;
+        let lightningCount = 0;
         
         let frames = 0;
         let baseHazardSpawnRate = 120;
@@ -368,16 +374,21 @@
         // Controlos
         function moveUp() {
             if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
+                if (player.holeFallTimer > 0 || player.isFallingThroughHole) {
+                    player.holeFallTimer = 0;
+                    player.isFallingThroughHole = false;
+                }
                 if (player.lane < 2) {
                     player.lane++;
                     player.targetY = lanesY[player.lane];
-                    targetCameraY += GAP_ENTRE_ANDARES * 0.6; // Desce a câmara
+                    targetCameraY += GAP_ENTRE_ANDARES * 0.6;
+                    player.laneChangeGrace = 10;
                     createJumpParticles();
                     playJumpSound();
                 } else if (player.lane === 2 && !player.isJumping) {
-                    // No andar superior, tentar subir funciona como pulo
                     player.isJumping = true;
-                    player.jumpVelocity = -14; // Velocidade inicial do pulo
+                    player.jumpVelocity = -14;
+                    player.laneChangeGrace = 10;
                     createJumpParticles();
                     playJumpSound();
                 }
@@ -386,9 +397,14 @@
 
         function moveDown() {
             if ((gameState === 'PLAYING' || gameState === 'TRANSITION') && player.lane > 0) {
+                if (player.holeFallTimer > 0 || player.isFallingThroughHole) {
+                    player.holeFallTimer = 0;
+                    player.isFallingThroughHole = false;
+                }
                 player.lane--;
                 player.targetY = lanesY[player.lane];
-                targetCameraY -= GAP_ENTRE_ANDARES * 0.6; // Sobe a câmara
+                targetCameraY -= GAP_ENTRE_ANDARES * 0.6;
+                player.laneChangeGrace = 10;
                 createJumpParticles();
                 playJumpSound();
             }
@@ -494,6 +510,8 @@
             raindrops = [];
             lightningFlash = 0;
             playerFalling = false;
+            player.fallingToLava = false;
+            player.fallToLavaTimer = 0;
             holeSpawnTimer = 0;
             lightningSpawnTimer = 0;
             
@@ -608,7 +626,10 @@
         }
 
         function spawnLightning() {
-            const x = canvas.width * 0.3 + Math.random() * canvas.width * 0.5;
+            lightningCount++;
+            // A cada 4 raios, um cai sobre a posição do personagem
+            const targetPlayer = lightningCount % 4 === 0;
+            const x = targetPlayer ? (player.x + player.width / 2) : (canvas.width * 0.3 + Math.random() * canvas.width * 0.5);
             lightnings.push({
                 x: x,
                 lane: 2,
@@ -660,7 +681,7 @@
         }
 
         function gameOver(win) {
-            if (!win && currentCharacter === 1 && currentPhase !== 3) {
+            if (!win && currentCharacter === 1) {
                 currentCharacter = 2;
                 gameState = 'TRANSITION';
                 player.isInvincible = true;
@@ -682,6 +703,7 @@
                     arrows.forEach(a => a.x += 400);
                     plants.forEach(p => p.x += 400);
                     dinosaurs.forEach(d => d.x += 400);
+                    stones.forEach(s => s.x += 400);
                     
                     setTimeout(() => { player.isInvincible = false; }, 2000);
                 }, 1000);
@@ -1158,6 +1180,196 @@
 
             const currentY = player.y + player.jumpOffset;
 
+            // Lava fall animation
+            if (player.fallingToLava) {
+                const fallProgress = 1 - (player.fallToLavaTimer / 30);
+                const fallOffset = fallProgress * 150;
+                const px = player.x;
+                const py = currentY + fallOffset;
+                const w = player.width;
+                const h = player.height;
+                const bounce = (gameState === 'PLAYING' || gameState === 'TRANSITION') ? Math.abs(Math.sin(time * 15)) * 6 : 0;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(px + w/2, py, w/2, 3 * (1 - fallProgress * 0.7), 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = player.colorBody;
+                ctx.beginPath();
+                ctx.roundRect(px, py - h + bounce, w, h - 20, 10);
+                ctx.fill();
+                
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(px + w/2 + 5, py - h + bounce - 5, 15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                    ctx.fillRect(px + w/2 + 12, py - h + bounce - 10, 4, 4);
+                
+                // Orange glow around falling player
+                ctx.shadowColor = '#ff4500';
+                ctx.shadowBlur = 20 * fallProgress;
+                ctx.strokeStyle = 'rgba(255,69,0,0.5)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - 5, py - h - 5, w + 10, h + 10);
+                ctx.shadowBlur = 0;
+                
+                return;
+            }
+
+            const px = player.x;
+            const py = currentY;
+            const w = player.width;
+            const h = player.height;
+
+            // Lightning death: umbrella canopy burns away, only the stick remains
+            if (gameState === 'DYING' && killerType === 'lightning') {
+                const cx = px + w/2;
+                const cy = py - h/2;
+                const shakeX = (Math.random() - 0.5) * 4;
+                const shakeY = (Math.random() - 0.5) * 4;
+                const s = shakeX, t = shakeY;
+
+                // Canopy shrinks and fades (first 10 frames), then disappears
+                if (deathTimer < 10) {
+                    const shrink = 1 - deathTimer / 10;
+                    const alpha = shrink;
+                    const radius = 34 * shrink;
+                    const domeX = cx + 5 + s;
+                    const domeY = cy - 30 + t;
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = '#1e3a5f';
+                    ctx.beginPath();
+                    ctx.arc(domeX, domeY, Math.max(radius, 2), Math.PI + 0.25, -0.25);
+                    ctx.lineTo(domeX, domeY);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                // Handle (cabo) stays in hand while skeleton forms
+                const handleX = cx + 10;
+                const handleY = cy + 7;  // belly height (synced with normal umbrella)
+                const domeX0 = cx + 5;
+                const domeY0 = cy - 70;  // above head (synced with normal umbrella)
+
+                // Glowing umbrella frame (ribs) while skeleton appears
+                const glowRadius = 34;
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 15;
+                for (let i = 0; i < 5; i++) {
+                    const angle = Math.PI + 0.25 + (i / 5) * (Math.PI - 0.5);
+                    const ex = domeX0 + Math.cos(angle) * glowRadius;
+                    const ey = domeY0 + Math.sin(angle) * glowRadius;
+                    ctx.beginPath();
+                    ctx.moveTo(domeX0, domeY0);
+                    ctx.lineTo(ex, ey);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = '#5c4033';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.moveTo(domeX0, domeY0);
+                ctx.lineTo(handleX, handleY);
+                ctx.stroke();
+                
+                // Hand still gripping the stick
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(handleX, handleY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Arm still holding the stick
+                ctx.strokeStyle = player.colorBody;
+                ctx.lineWidth = 7;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx + 5 + s, py - 20 + t);
+                ctx.lineTo(handleX + s, handleY + t);
+                ctx.stroke();
+
+                // Skeleton appears after canopy is gone
+                if (deathTimer >= 8) {
+                    const skX = cx + s;
+                    const skY = cy + t;
+                    
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 10;
+                    
+                    // Head
+                    ctx.beginPath();
+                    ctx.arc(skX, skY - 32, 15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#000000';
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.arc(skX - 5, skY - 35, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(skX + 5, skY - 35, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(skX, skY - 25, 7, 0.2, Math.PI - 0.2);
+                    ctx.stroke();
+                    
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.moveTo(skX, skY - 16);
+                    ctx.lineTo(skX, skY + 30);
+                    ctx.stroke();
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const ry = skY - 8 + i * 10;
+                        ctx.beginPath();
+                        ctx.moveTo(skX - 15, ry);
+                        ctx.lineTo(skX + 15, ry);
+                        ctx.stroke();
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(skX, skY - 12);
+                    ctx.lineTo(skX - 20, skY + 8);
+                    ctx.lineTo(skX - 26, skY + 15);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(skX, skY - 12);
+                    ctx.lineTo(skX + 20, skY + 8);
+                    ctx.lineTo(skX + 26, skY + 15);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(skX, skY + 30);
+                    ctx.lineTo(skX - 12, skY + 52);
+                    ctx.lineTo(skX - 18, skY + 56);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(skX, skY + 30);
+                    ctx.lineTo(skX + 12, skY + 52);
+                    ctx.lineTo(skX + 18, skY + 56);
+                    ctx.stroke();
+                    
+                    ctx.shadowBlur = 0;
+                }
+                return;
+            }
+
             if (gameState === 'DYING' && killerType === 'plant') {
                 const scale = Math.max(0, 1 - deathTimer / 40);
                 if (scale <= 0 || deathTimer > 25) return;
@@ -1167,10 +1379,6 @@
                 ctx.translate(-(player.x + player.width/2), -(currentY - player.height/2));
             }
 
-            const px = player.x;
-            const py = currentY;
-            const w = player.width;
-            const h = player.height;
             const bounce = (gameState === 'PLAYING' || gameState === 'TRANSITION') ? Math.abs(Math.sin(time * 15)) * 6 : 0;
             const swingFront = Math.sin(time * 15) * 15;
             const swingBack = Math.sin(time * 15 + Math.PI) * 15;
@@ -1183,18 +1391,18 @@
                 ctx.fill();
             }
 
-            // Braço/Perna Traseiros
-            ctx.strokeStyle = player.hasHat ? '#374151' : '#1e3a8a'; 
+            // Pernas (ambas visíveis na vista lateral)
+            ctx.strokeStyle = player.colorBody;
             ctx.lineWidth = 7;
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.moveTo(px + w/2, py - h + bounce + 15);
-            ctx.lineTo(px + w/2 + swingBack, py - h + bounce + 40);
+            ctx.moveTo(px + w/2 - 2, py - 18 + bounce);
+            ctx.lineTo(px + w/2 - 2 + swingBack, py + 15 + bounce);
             ctx.stroke();
 
             ctx.beginPath();
-            ctx.moveTo(px + w/2 - 5, py - 20 + bounce);
-            ctx.lineTo(px + w/2 - 5 + swingBack, py);
+            ctx.moveTo(px + w/2 + 2, py - 18 + bounce);
+            ctx.lineTo(px + w/2 + 2 + swingFront, py + 15 + bounce);
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
@@ -1241,28 +1449,118 @@
                 ctx.fill();
             }
 
-            // Membros Dianteiros
-            ctx.strokeStyle = player.colorBody;
-            ctx.lineWidth = 6;
-            ctx.beginPath();
-            ctx.moveTo(px + w/2 + 5, py - 20 + bounce);
-            ctx.lineTo(px + w/2 + 5 + swingFront, py);
-            ctx.stroke();
+            // Braço único (vista lateral - apenas o braço da frente visível)
+            const shoulderX = px + w/2 + 5;
+            const shoulderY = py - h + bounce + 12;
 
-            ctx.lineWidth = 7;
-            ctx.beginPath();
-            ctx.moveTo(px + w/2, py - h + bounce + 15);
-            ctx.lineTo(px + w/2 + swingFront, py - h + bounce + 40);
-            ctx.stroke();
-
-            // Mãos
-            ctx.fillStyle = player.colorHead;
-            ctx.beginPath();
-            ctx.arc(px + w/2 + swingBack, py - h + bounce + 40, 3.5, 0, Math.PI * 2);
-            ctx.arc(px + w/2 + swingFront, py - h + bounce + 40, 3.5, 0, Math.PI * 2);
-            ctx.fill();
+            if (gameState === 'DYING' && (currentPhase === 3 || currentPhase === 2)) {
+                // Morrendo com objeto: braço solto
+                ctx.strokeStyle = player.colorBody;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(shoulderX, shoulderY);
+                ctx.lineTo(shoulderX + swingFront, py - 15 + bounce);
+                ctx.stroke();
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(shoulderX + swingFront, py - 15 + bounce, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (currentPhase === 3) {
+                // Segurando guarda-chuva - mão parada na barriga
+                const handX = px + w/2 + 8;
+                const handY = py - 28 + bounce;
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(handX, handY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = player.colorBody;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(shoulderX, shoulderY);
+                ctx.lineTo(handX + 2, handY);
+                ctx.stroke();
+            } else if (currentPhase === 2) {
+                // Segurando lanterna - mão parada na barriga
+                const handX = px + w/2 + 7;
+                const handY = py - 28 + bounce;
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(handX, handY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = player.colorBody;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(shoulderX, shoulderY);
+                ctx.lineTo(handX + 2, handY);
+                ctx.stroke();
+            } else {
+                // Balançando livremente
+                ctx.strokeStyle = player.colorBody;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(shoulderX, shoulderY);
+                ctx.lineTo(shoulderX + swingFront, py - 15 + bounce);
+                ctx.stroke();
+                ctx.fillStyle = player.colorHead;
+                ctx.beginPath();
+                ctx.arc(shoulderX + swingFront, py - 15 + bounce, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             if (gameState === 'DYING' && killerType === 'plant') ctx.restore();
+
+            // Guarda-chuva na Fase 3 (apenas canopi e cabo - mão/braço já desenhados acima)
+            if (currentPhase === 3 && gameState !== 'DYING') {
+                const handleX = px + w/2 + 8;
+                const handleY = py - 28 + bounce;
+                const domeX = px + w/2 + 5;
+                const domeY = py - h + bounce - 35;
+                const radius = 34;
+
+                // Canopy (cúpula)
+                ctx.fillStyle = '#1e3a5f';
+                ctx.beginPath();
+                ctx.arc(domeX, domeY, radius, Math.PI + 0.25, -0.25);
+                ctx.lineTo(domeX, domeY);
+                ctx.fill();
+                ctx.strokeStyle = '#0f2540';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(domeX, domeY, radius, Math.PI + 0.25, -0.25);
+                ctx.lineTo(domeX, domeY);
+                ctx.stroke();
+
+                // Canopy stripes
+                for (let i = 0; i < 5; i++) {
+                    const angle = Math.PI + 0.25 + (i / 5) * (Math.PI - 0.5);
+                    const ex = domeX + Math.cos(angle) * radius;
+                    const ey = domeY + Math.sin(angle) * radius;
+                    ctx.strokeStyle = '#3a7abd';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(domeX, domeY);
+                    ctx.lineTo(ex, ey);
+                    ctx.stroke();
+                }
+
+                // Handle (cabo) - da cúpula até a mão na barriga
+                ctx.strokeStyle = '#5c4033';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(domeX, domeY);
+                ctx.lineTo(handleX, handleY);
+                ctx.stroke();
+
+                // Hook (curva no final do cabo)
+                ctx.beginPath();
+                ctx.arc(handleX + 3, handleY + 3, 5, -Math.PI / 2, Math.PI / 2);
+                ctx.stroke();
+            }
         }
 
         function drawTunnelWall() {
@@ -1662,23 +1960,35 @@
                     });
                     lightnings = lightnings.filter(l => l.active);
                     
+                    // Decrement lane change grace counter
+                    if (player.laneChangeGrace > 0) player.laneChangeGrace--;
+                    
                     const playerCenterX = player.x + player.width / 2;
                     for (let h of platformHoles) {
                         if (h.lane === player.lane && playerCenterX > h.x && playerCenterX < h.x + h.width) {
-                            if (!player.isJumping && !playerFalling) {
-                                playerFalling = true;
-                                setTimeout(() => {
-                                    if (player.lane > 0) {
-                                        player.lane--;
-                                        player.targetY = lanesY[player.lane];
-                                        targetCameraY -= GAP_ENTRE_ANDARES * 0.6;
-                                    } else {
-                                        takeDamage('lava', null);
-                                    }
-                                    playerFalling = false;
-                                }, 200);
+                            if (!player.isJumping && !playerFalling && !player.isFallingThroughHole && !player.fallingToLava && player.holeFallTimer <= 0 && player.laneChangeGrace <= 0) {
+                                player.holeFallTimer = 15;
+                                player.isFallingThroughHole = true;
                             }
                             break;
+                        }
+                    }
+                    
+                    // Process hole falling (frame-based)
+                    if (player.isFallingThroughHole && player.holeFallTimer > 0) {
+                        player.holeFallTimer--;
+                        if (player.holeFallTimer <= 0) {
+                            if (player.lane > 0) {
+                                player.lane--;
+                                player.targetY = lanesY[player.lane];
+                                targetCameraY -= GAP_ENTRE_ANDARES * 0.6;
+                                player.isFallingThroughHole = false;
+                            } else {
+                                // Start lava fall animation instead of instant death
+                                player.isFallingThroughHole = false;
+                                player.fallingToLava = true;
+                                player.fallToLavaTimer = 30;
+                            }
                         }
                     }
                     
@@ -1690,6 +2000,16 @@
                             }
                         }
                     }
+                    
+                    // Lava fall animation
+                    if (player.fallingToLava) {
+                        player.fallToLavaTimer--;
+                        gameSpeed *= 0.95;
+                        if (player.fallToLavaTimer <= 0) {
+                            player.fallingToLava = false;
+                            takeDamage('lava', null);
+                        }
+                    }
                 }
 
                 player.y += (player.targetY - player.y) * 0.15;
@@ -1698,8 +2018,10 @@
                 if (frames % Math.floor(currentHazardSpawnRate) === 0 && distance < (currentPhase === 3 ? WIN_DISTANCE_PHASE3 : WIN_DISTANCE) - 500) {
                     const rand = Math.random();
                     if (currentPhase === 3) {
-                        if (rand < 0.5) spawnArrow();
-                        else spawnArrow();
+                        if (rand < 0.25) spawnArrow();
+                        else if (rand < 0.5) spawnPlant();
+                        else if (rand < 0.75) spawnDinosaur();
+                        else spawnStone();
                     } else {
                         if (rand < 0.25) spawnArrow();
                         else if (rand < 0.5) spawnPlant();
