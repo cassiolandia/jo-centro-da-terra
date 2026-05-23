@@ -743,6 +743,7 @@
             updatePlayerVisuals();
 
             uiMenu.classList.add('hidden');
+            uiMenu.style.setProperty('display', 'none', 'important');
             hud.classList.remove('hidden');
             desktopControls.classList.remove('hidden');
             mobileControls.classList.remove('hidden');
@@ -971,6 +972,7 @@
             gameState = win ? (currentPhase === 3 || (currentPhase === 2 && gameMode === 'select') ? 'VICTORY' : 'TRANSITION') : 'GAMEOVER';
             
             uiMenu.classList.remove('hidden');
+            uiMenu.style.setProperty('display', 'flex', 'important');
             hud.classList.add('hidden');
             desktopControls.classList.add('hidden');
             mobileControls.classList.add('hidden');
