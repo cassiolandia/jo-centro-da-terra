@@ -241,6 +241,15 @@
         let baseHazardSpawnRate = 120;
         let currentHazardSpawnRate = 120;
 
+        // Meme do Reptile (Mortal Kombat) para manobras incríveis
+        let memeImage = new Image();
+        memeImage.src = 'meme.png';
+        let memeSound = new Audio('faaah.mp3');
+        let showMemeTimer = 0;
+        let memeCooldown = 0;
+        let memePending = false;
+        let memePendingTimer = 0;
+
         // --- SISTEMA DE ÁUDIO SINTÉTICO (Web Audio API) ---
         let audioCtx;
         let bgmInterval;
@@ -309,6 +318,14 @@
                 osc.start(startTime + i * 0.15);
                 osc.stop(startTime + i * 0.15 + 0.15);
             });
+        }
+
+        function playMemeSound() {
+            if (memeSound) {
+                memeSound.pause();
+                memeSound.currentTime = 0;
+                memeSound.play().catch(() => {});
+            }
         }
 
         function startBGM() {
@@ -514,6 +531,10 @@
             player.fallToLavaTimer = 0;
             holeSpawnTimer = 0;
             lightningSpawnTimer = 0;
+            showMemeTimer = 0;
+            memeCooldown = 0;
+            memePending = false;
+            memePendingTimer = 0;
             
             if (phase === 3) {
                 initRain();
@@ -937,8 +958,8 @@
                 skyGrad.addColorStop(0, '#020617');
                 skyGrad.addColorStop(1, '#1e1b4b');
             } else {
-                skyGrad.addColorStop(0, '#0f172a'); 
-                skyGrad.addColorStop(1, '#38bdf8');
+                skyGrad.addColorStop(0, '#0ea5e9');
+                skyGrad.addColorStop(1, '#bae6fd');
             }
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, skyBottom - 2000, canvas.width, 2000);
@@ -1397,12 +1418,12 @@
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(px + w/2 - 2, py - 18 + bounce);
-            ctx.lineTo(px + w/2 - 2 + swingBack, py + 15 + bounce);
+            ctx.lineTo(px + w/2 - 2 + swingBack, py + 10 + bounce);
             ctx.stroke();
 
             ctx.beginPath();
             ctx.moveTo(px + w/2 + 2, py - 18 + bounce);
-            ctx.lineTo(px + w/2 + 2 + swingFront, py + 15 + bounce);
+            ctx.lineTo(px + w/2 + 2 + swingFront, py + 10 + bounce);
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
@@ -1609,12 +1630,28 @@
             ctx.translate(diamond.x, diamond.y);
             const floatY = Math.sin(frames * 0.05) * 12;
             
+            // Esquema de cores por fase
+            let c;
+            if (currentPhase === 2) {
+                c = { g1: 'rgba(239,68,68,', g2: 'rgba(220,38,38,', g3: 'rgba(153,27,27,0)',
+                      right: '#dc2626', rightTop: '#fca5a5', rightBottom: '#b91c1c',
+                      left: '#ef4444', leftTop: '#fecaca', leftBottom: '#991b1b' };
+            } else if (currentPhase === 3) {
+                c = { g1: 'rgba(34,197,94,', g2: 'rgba(22,163,74,', g3: 'rgba(21,128,61,0)',
+                      right: '#16a34a', rightTop: '#86efac', rightBottom: '#15803d',
+                      left: '#22c55e', leftTop: '#bbf7d0', leftBottom: '#166534' };
+            } else {
+                c = { g1: 'rgba(34,211,238,', g2: 'rgba(6,182,212,', g3: 'rgba(8,145,178,0)',
+                      right: '#06b6d4', rightTop: '#e0f2fe', rightBottom: '#0891b2',
+                      left: '#22d3ee', leftTop: '#bae6fd', leftBottom: '#0e7490' };
+            }
+            
             // Brilho intenso pulsante
             const pulse = 0.5 + Math.abs(Math.sin(frames * 0.05)) * 0.5;
             const gradient = ctx.createRadialGradient(0, floatY, 0, 0, floatY, diamond.radius * 4);
-            gradient.addColorStop(0, `rgba(34, 211, 238, ${0.8 * pulse})`);
-            gradient.addColorStop(0.4, `rgba(6, 182, 212, ${0.4 * pulse})`);
-            gradient.addColorStop(1, 'rgba(8, 145, 178, 0)');
+            gradient.addColorStop(0, `${c.g1} ${0.8 * pulse})`);
+            gradient.addColorStop(0.4, `${c.g2} ${0.4 * pulse})`);
+            gradient.addColorStop(1, c.g3);
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, floatY, diamond.radius * 4, 0, Math.PI * 2);
@@ -1627,7 +1664,7 @@
             ctx.fill();
 
             // Estrutura do Diamante 3D
-            ctx.fillStyle = '#06b6d4'; // Face direita
+            ctx.fillStyle = c.right;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius);
             ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
@@ -1635,7 +1672,7 @@
             ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = '#e0f2fe'; // Face superior direita (mais clara)
+            ctx.fillStyle = c.rightTop;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius);
             ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
@@ -1643,7 +1680,7 @@
             ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = '#0891b2'; // Face inferior direita (mais escura)
+            ctx.fillStyle = c.rightBottom;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius/3);
             ctx.lineTo(diamond.radius, floatY - diamond.radius/3);
@@ -1651,8 +1688,7 @@
             ctx.closePath();
             ctx.fill();
 
-            // Faces esquerdas
-            ctx.fillStyle = '#22d3ee'; // Face esquerda
+            ctx.fillStyle = c.left;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius);
             ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
@@ -1660,7 +1696,7 @@
             ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = '#bae6fd'; // Face superior esquerda
+            ctx.fillStyle = c.leftTop;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius);
             ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
@@ -1668,7 +1704,7 @@
             ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = '#0e7490'; // Face inferior esquerda
+            ctx.fillStyle = c.leftBottom;
             ctx.beginPath();
             ctx.moveTo(0, floatY - diamond.radius/3);
             ctx.lineTo(-diamond.radius, floatY - diamond.radius/3);
@@ -1887,6 +1923,21 @@
             ctx.shadowBlur = 0;
         }
 
+        function drawMeme() {
+            if (showMemeTimer <= 0) return;
+            const size = 200;
+            const x = canvas.width - 300;
+            const y = canvas.height - size;
+            let alpha;
+            if (showMemeTimer > 40) alpha = 1;
+            else if (showMemeTimer > 20) alpha = (showMemeTimer - 20) / 20;
+            else alpha = Math.min(showMemeTimer / 10, 1);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(memeImage, x, y, size, size);
+            ctx.restore();
+        }
+
         // --- LOOP PRINCIPAL DO JOGO ---
         function gameLoop() {
             const timeSeconds = Date.now() * 0.001;
@@ -2087,6 +2138,44 @@
                     if (player.lane === 0 && checkCollision(s)) takeDamage('stone', s);
                     if (s.x + 100 < 0) stones.splice(i, 1);
                 }
+
+                // Near-miss detection: manobra incrível escapando do perigo
+                if (gameState === 'PLAYING' && memeCooldown <= 0 && showMemeTimer <= 0 && !player.isInvincible) {
+                    const pad = 5;
+                    const cY = player.y + player.jumpOffset;
+                    const nmL = player.x - pad, nmR = player.x + player.width + pad;
+                    const nmT = cY - player.height - pad, nmB = cY + pad;
+                    let nearMiss = false;
+                    const allHazards = [arrows, plants, dinosaurs, stones];
+                    for (let list of allHazards) {
+                        for (let obj of list) {
+                            if (!obj.active || (obj.lane !== undefined && obj.lane !== player.lane)) continue;
+                            let oL, oR, oT, oB;
+                            if (obj.radius) {
+                                oL = obj.x - obj.radius; oR = obj.x + obj.radius;
+                                oT = obj.y - obj.radius; oB = obj.y + obj.radius;
+                            } else {
+                                oL = obj.x; oR = obj.x + (obj.width || 60);
+                                oT = obj.y - (obj.height || 50); oB = obj.y;
+                            }
+                            if (oL < nmR && oR > nmL && oT < nmB && oB > nmT) {
+                                nearMiss = true; break;
+                            }
+                        }
+                        if (nearMiss) break;
+                    }
+                    if (nearMiss) { memePending = true; memePendingTimer = 0; memeCooldown = 180; }
+                }
+            }
+
+            if (memeCooldown > 0) memeCooldown--;
+            if (showMemeTimer > 0) showMemeTimer--;
+            if (memePending) {
+                memePendingTimer++;
+                if (memePendingTimer >= 10) {
+                    if (gameState === 'PLAYING') { showMemeTimer = 90; playMemeSound(); }
+                    memePending = false;
+                }
             }
 
             if (gameState === 'DYING') {
@@ -2109,6 +2198,8 @@
             drawRain();
             drawLightningFlash();
             ctx.restore();
+
+            drawMeme();
 
             requestAnimationFrame(gameLoop);
         }
