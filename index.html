@@ -110,19 +110,51 @@
             margin: auto 0;
         }
 
-        /* Posicionamento do HUD responsivo para evitar sobreposição */
+        /* Posicionamento do HUD responsivo no magma (canto inferior esquerdo) e menor no mobile */
         #hud {
             position: absolute !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            top: 1rem !important;
+            left: 1rem !important;
+            bottom: 1rem !important;
+            top: auto !important;
+            transform: none !important;
             margin: 0 !important;
+            padding: 0.5rem 0.75rem !important;
+            gap: 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+        #hud #current-character {
+            font-size: 0.95rem !important;
+            line-height: 1.1 !important;
+        }
+        #hud p {
+            font-size: 0.65rem !important;
+        }
+        #hud #progress-bar-container {
+            width: 5.5rem !important;
+            height: 0.5rem !important;
+        }
+        #hud .h-10 {
+            height: 1.5rem !important;
         }
         @media (min-width: 768px) {
             #hud {
                 position: static !important;
-                transform: none !important;
                 margin-left: 0 !important;
+                padding: 1rem !important;
+                gap: 1rem !important;
+            }
+            #hud #current-character {
+                font-size: 1.5rem !important;
+            }
+            #hud p {
+                font-size: 0.875rem !important;
+            }
+            #hud #progress-bar-container {
+                width: 8rem !important;
+                height: 0.75rem !important;
+            }
+            #hud .h-10 {
+                height: 2.5rem !important;
             }
         }
     </style>
@@ -169,7 +201,7 @@
                 <div class="h-10 w-px bg-orange-500/50"></div>
                 <div>
                     <p class="text-xs md:text-sm text-orange-300 uppercase tracking-widest font-bold">Progresso</p>
-                    <div class="w-32 md:w-48 h-3 bg-gray-800 rounded-full mt-1 border border-gray-600 overflow-hidden shadow-inner">
+                    <div id="progress-bar-container" class="w-32 md:w-48 h-3 bg-gray-800 rounded-full mt-1 border border-gray-600 overflow-hidden shadow-inner">
                         <div id="progress-bar" class="h-full bg-gradient-to-r from-orange-600 to-yellow-400 w-0 transition-all duration-300"></div>
                     </div>
                 </div>
@@ -2335,7 +2367,7 @@
                 }
                 for (let i = stones.length - 1; i >= 0; i--) {
                     let s = stones[i]; s.x += s.vx; s.y += s.vy;
-                    if (s.y < lanesY[0] - 100 || s.y > lanesY[0] + 20) s.vy *= -1;
+                    if (s.y < lanesY[0] - GAP_ENTRE_ANDARES * 0.8 || s.y > lanesY[0] + GAP_ENTRE_ANDARES * 0.16) s.vy *= -1;
                     if (player.lane === 0 && checkCollision(s)) takeDamage('stone', s);
                     if (s.x + 100 < 0) stones.splice(i, 1);
                 }
