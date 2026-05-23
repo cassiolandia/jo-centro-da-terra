@@ -91,8 +91,7 @@
                 display: none !important;
             }
         }
-
-        /* Garantir rolagem na tela de menu/modal para celulares landscape */
+             /* Garantir rolagem na tela de menu/modal para celulares landscape */
         #menu-screen {
             display: flex;
             flex-direction: column;
@@ -103,9 +102,28 @@
             padding: 2rem 1rem;
             touch-action: pan-y !important;
         }
+        #menu-screen.hidden {
+            display: none !important;
+        }
         #menu-modal {
             touch-action: pan-y !important;
             margin: auto 0;
+        }
+
+        /* Posicionamento do HUD responsivo para evitar sobreposição */
+        #hud {
+            position: absolute !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            top: 1rem !important;
+            margin: 0 !important;
+        }
+        @media (min-width: 768px) {
+            #hud {
+                position: static !important;
+                transform: none !important;
+                margin-left: 0 !important;
+            }
         }
     </style>
 </head>
@@ -213,17 +231,15 @@
             <button id="btn-down" class="control-btn w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl pt-1 shadow-lg select-none">⬇️</button>
         </div>
         
-        <div class="fixed inset-x-0 bottom-0 top-0 pointer-events-none z-[45] hidden" id="mobile-controls">
-            <!-- Left Touch Area (Down) -->
-            <div id="btn-down-m" class="absolute bottom-6 left-6 w-20 h-20 rounded-full glass-panel flex flex-col items-center justify-center border-orange-500/30 active:border-orange-500/80 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] pointer-events-auto cursor-pointer select-none">
-                <span class="text-3xl text-orange-400 select-none">⬇️</span>
-                <span class="text-[9px] text-orange-400/70 font-bold uppercase tracking-wider mt-0.5 select-none">Descer</span>
+        <div class="fixed bottom-6 right-6 flex flex-col gap-3 pointer-events-none z-[45] hidden" id="mobile-controls">
+            <!-- Right Touch Area (Up) -->
+            <div id="btn-up-m" class="w-16 h-16 rounded-full glass-panel flex flex-col items-center justify-center border-orange-500/30 active:border-orange-500/80 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] pointer-events-auto cursor-pointer select-none">
+                <span class="text-2xl text-orange-400 select-none">⬆️</span>
             </div>
             
-            <!-- Right Touch Area (Up) -->
-            <div id="btn-up-m" class="absolute bottom-6 right-6 w-20 h-20 rounded-full glass-panel flex flex-col items-center justify-center border-orange-500/30 active:border-orange-500/80 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] pointer-events-auto cursor-pointer select-none">
-                <span class="text-3xl text-orange-400 select-none">⬆️</span>
-                <span class="text-[9px] text-orange-400/70 font-bold uppercase tracking-wider mt-0.5 select-none">Subir</span>
+            <!-- Right Touch Area (Down) -->
+            <div id="btn-down-m" class="w-16 h-16 rounded-full glass-panel flex flex-col items-center justify-center border-orange-500/30 active:border-orange-500/80 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] pointer-events-auto cursor-pointer select-none">
+                <span class="text-2xl text-orange-400 select-none">⬇️</span>
             </div>
         </div>
 
@@ -296,7 +312,7 @@
 
         // Estrutura do Mundo
         const LÁPIDE_OFFSET = 150; // Distância do topo
-        const GAP_ENTRE_ANDARES = 120;
+        let GAP_ENTRE_ANDARES = 120;
         // Posição Y de cada chão (0=Baixo, 1=Meio, 2=Cima)
         let lanesY = []; 
         let cameraY = 0;
@@ -476,13 +492,21 @@
             nightCanvas.width = canvas.width;
             nightCanvas.height = canvas.height;
             
-            // Recalcular posições das pistas com base no centro do ecrã
-            const startY = (canvas.height / 2) + GAP_ENTRE_ANDARES;
+            // Ajustar dinamicamente o gap com base na altura da tela
+            GAP_ENTRE_ANDARES = Math.max(75, Math.min(125, canvas.height * 0.20));
+            
+            // Recalcular posições das pistas com base no centro da tela
+            const startY = (canvas.height / 2) + GAP_ENTRE_ANDARES * 0.8;
             lanesY = [
                 startY,                     // 0: Baixo
                 startY - GAP_ENTRE_ANDARES, // 1: Meio
                 startY - GAP_ENTRE_ANDARES * 2 // 2: Cima
             ];
+            
+            // Ajustar dinamicamente o tamanho do personagem proporcionalmente ao gap
+            player.height = GAP_ENTRE_ANDARES * 0.58;
+            player.width = player.height * 0.57;
+            player.x = Math.max(60, window.innerWidth * 0.15);
             
             player.targetY = lanesY[player.lane];
             if (gameState === 'MENU') {
@@ -750,9 +774,9 @@
             const inAir = Math.random() > 0.5; // 50% de chance de voar alto para acertar quem tenta pular
             arrows.push({
                 x: canvas.width + 100,
-                y: lanesY[lane] - player.height / 2 - (inAir ? 60 : 0), // Aponta para o centro do corpo ou alto
-                width: 60,
-                height: 6,
+                y: lanesY[lane] - player.height / 2 - (inAir ? GAP_ENTRE_ANDARES * 0.5 : 0), // Aponta para o centro do corpo ou alto
+                width: GAP_ENTRE_ANDARES * 0.5,
+                height: GAP_ENTRE_ANDARES * 0.05,
                 lane: lane,
                 speed: gameSpeed * (2.2 + Math.random() * 0.8), // Flechas agora significativamente mais rápidas
                 active: true
@@ -763,8 +787,8 @@
             plants.push({
                 x: canvas.width + 100,
                 y: lanesY[2], // Camada de cima
-                width: 50,
-                height: 60,
+                width: GAP_ENTRE_ANDARES * 0.42,
+                height: GAP_ENTRE_ANDARES * 0.5,
                 lane: 2,
                 active: true,
                 mouthOpen: 0
@@ -775,8 +799,8 @@
             dinosaurs.push({
                 x: canvas.width + 100,
                 y: lanesY[1], // Camada do meio
-                width: 70,
-                height: 50,
+                width: GAP_ENTRE_ANDARES * 0.58,
+                height: GAP_ENTRE_ANDARES * 0.42,
                 lane: 1,
                 speed: gameSpeed * 1.3,
                 active: true,
@@ -787,8 +811,8 @@
         function spawnStone() {
             stones.push({
                 x: canvas.width + 100,
-                y: lanesY[0] - 40 + (Math.random() - 0.5) * 80, // Camada de baixo, flutuando
-                radius: 15 + Math.random() * 15,
+                y: lanesY[0] - GAP_ENTRE_ANDARES * 0.33 + (Math.random() - 0.5) * GAP_ENTRE_ANDARES * 0.66, // Camada de baixo, flutuando
+                radius: GAP_ENTRE_ANDARES * (0.125 + Math.random() * 0.125),
                 lane: 0,
                 vx: -(gameSpeed + 2 + Math.random() * 3),
                 vy: (Math.random() - 0.5) * 4,
@@ -799,11 +823,11 @@
         function spawnDiamond() {
             diamond = {
                 x: canvas.width + 400,
-                y: lanesY[0] - 40,
-                radius: 30,
+                y: lanesY[0] - GAP_ENTRE_ANDARES * 0.33,
+                radius: GAP_ENTRE_ANDARES * 0.25,
                 angle: 0
             };
-            wallX = diamond.x + 250;
+            wallX = diamond.x + GAP_ENTRE_ANDARES * 2.1;
         }
 
         function spawnPlatformHole() {
@@ -1198,7 +1222,7 @@
                 if (x < -100) x += totalStalactiteWidth;
                 ctx.beginPath();
                 ctx.moveTo(x, lanesY[2]);
-                ctx.lineTo(x + 25, lanesY[2] + 60 + (Math.sin(i * 13.5) * 30)); 
+                ctx.lineTo(x + 25, lanesY[2] + (GAP_ENTRE_ANDARES * 0.5) + (Math.sin(i * 13.5) * (GAP_ENTRE_ANDARES * 0.25))); 
                 ctx.lineTo(x + 50, lanesY[2]);
                 ctx.fill();
             }
@@ -1923,13 +1947,14 @@
             plants.forEach(p => {
                 ctx.save();
                 ctx.translate(p.x, p.y);
-                let headX = 5, headY = -50, stemControlX = 0;
-                let mouth = Math.abs(Math.sin(frames * 0.1)) * 20;
+                const scaleF = p.height / 60; // Fator de escala com base na altura padrão (60)
+                let headX = 5 * scaleF, headY = -50 * scaleF, stemControlX = 0;
+                let mouth = Math.abs(Math.sin(frames * 0.1)) * 20 * scaleF;
                 if (gameState === 'DYING' && killerRef === p) {
-                    mouth = 40;
+                    mouth = 40 * scaleF;
                     const progress = Math.min(1, deathTimer / 30);
                     headX = (player.x - p.x) * progress;
-                    headY = (player.y - p.y - 20) * progress;
+                    headY = (player.y - p.y - 20 * scaleF) * progress;
                     stemControlX = headX * 1.5;
                     if (deathTimer > 20) {
                         player.x += (p.x + headX - player.x) * 0.2;
@@ -1937,22 +1962,22 @@
                     }
                 }
                 ctx.fillStyle = '#16a34a';
-                ctx.beginPath(); ctx.ellipse(-15, -10, 12, 6, Math.PI / 4, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(25, -15, 14, 7, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = '#166534'; ctx.lineWidth = 12; ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(5, 0); ctx.quadraticCurveTo(stemControlX, headY, headX, headY); ctx.stroke();
+                ctx.beginPath(); ctx.ellipse(-15 * scaleF, -10 * scaleF, 12 * scaleF, 6 * scaleF, Math.PI / 4, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(25 * scaleF, -15 * scaleF, 14 * scaleF, 7 * scaleF, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#166534'; ctx.lineWidth = 12 * scaleF; ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(5 * scaleF, 0); ctx.quadraticCurveTo(stemControlX, headY, headX, headY); ctx.stroke();
                 ctx.save(); ctx.translate(headX, headY);
                 if (gameState === 'DYING' && killerRef === p) {
                     const angle = Math.atan2(player.y - (p.y + headY), player.x - (p.x + headX));
                     ctx.rotate(angle + Math.PI/2);
                 }
                 ctx.fillStyle = '#b91c1c';
-                ctx.beginPath(); ctx.arc(0, -mouth/2, 25, Math.PI, 0); ctx.fill();
-                ctx.beginPath(); ctx.arc(0, mouth/2, 25, 0, Math.PI); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, -mouth/2, 25 * scaleF, Math.PI, 0); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, mouth/2, 25 * scaleF, 0, Math.PI); ctx.fill();
                 ctx.fillStyle = 'white';
                 for(let i=-1; i<=1; i++) {
-                    ctx.beginPath(); ctx.moveTo(i*12 - 4, -mouth/2); ctx.lineTo(i*12, -mouth/2 + 10); ctx.lineTo(i*12 + 4, -mouth/2); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(i*12 - 4, mouth/2); ctx.lineTo(i*12, mouth/2 - 10); ctx.lineTo(i*12 + 4, mouth/2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo((i*12 - 4) * scaleF, -mouth/2); ctx.lineTo((i*12) * scaleF, -mouth/2 + 10 * scaleF); ctx.lineTo((i*12 + 4) * scaleF, -mouth/2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo((i*12 - 4) * scaleF, mouth/2); ctx.lineTo((i*12) * scaleF, mouth/2 - 10 * scaleF); ctx.lineTo((i*12 + 4) * scaleF, mouth/2); ctx.fill();
                 }
                 ctx.restore(); ctx.restore();
             });
@@ -1961,28 +1986,29 @@
         function drawDinosaurs() {
             dinosaurs.forEach(d => {
                 ctx.save();
+                const scaleF = d.height / 50; // Fator de escala com base na altura padrão (50)
                 let lungeX = 0, headYOffset = 0, mouthOpen = 0, neckRotation = 0;
                 if (gameState === 'DYING' && killerRef === d) {
-                    lungeX = Math.min(40, deathTimer * 4);
-                    headYOffset = Math.sin(deathTimer * 0.8) * 15 + 10;
-                    mouthOpen = Math.abs(Math.sin(deathTimer * 0.8)) * 30;
+                    lungeX = Math.min(40 * scaleF, deathTimer * 4 * scaleF);
+                    headYOffset = Math.sin(deathTimer * 0.8) * 15 * scaleF + 10 * scaleF;
+                    mouthOpen = Math.abs(Math.sin(deathTimer * 0.8)) * 30 * scaleF;
                     neckRotation = Math.sin(deathTimer * 0.8) * 0.2;
                     if (deathTimer % 10 < 5) ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
                 }
                 ctx.translate(d.x + d.width - lungeX, d.y); ctx.scale(-1, 1);
                 const legSwing = Math.sin(d.frame * 2) * 15;
-                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(35, 0, 30, 5, 0, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#2d3a1a'; ctx.lineWidth = 10;
-                ctx.beginPath(); ctx.moveTo(30, -25); ctx.lineTo(30 + legSwing, 0); ctx.moveTo(45, -25); ctx.lineTo(45 - legSwing, 0); ctx.stroke();
-                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.ellipse(35, -40, 45, 25, 0.2, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#3f4d21'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(65, -45); ctx.lineTo(75, -35 + Math.sin(d.frame)*5); ctx.stroke();
-                ctx.save(); ctx.translate(70, -50); ctx.rotate(neckRotation); ctx.translate(0, headYOffset);
-                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(15, -25); ctx.lineTo(55, -25); ctx.lineTo(55, -mouthOpen/2); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(50, mouthOpen/2); ctx.lineTo(50, 0); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = 'white'; for(let i=0; i<4; i++) { ctx.fillRect(25 + i*8, -mouthOpen/2, 3, 5); ctx.fillRect(25 + i*8, mouthOpen/2, 3, -5); }
-                ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(25, -15, 4, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = 'black'; ctx.fillRect(25, -16, 2, 3); ctx.restore();
-                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.moveTo(10, -45); ctx.quadraticCurveTo(-30, -50 + Math.sin(d.frame)*15, -50, -10); ctx.lineTo(10, -30); ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(35 * scaleF, 0, 30 * scaleF, 5 * scaleF, 0, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#2d3a1a'; ctx.lineWidth = 10 * scaleF;
+                ctx.beginPath(); ctx.moveTo(30 * scaleF, -25 * scaleF); ctx.lineTo((30 + legSwing) * scaleF, 0); ctx.moveTo(45 * scaleF, -25 * scaleF); ctx.lineTo((45 - legSwing) * scaleF, 0); ctx.stroke();
+                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.ellipse(35 * scaleF, -40 * scaleF, 45 * scaleF, 25 * scaleF, 0.2, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#3f4d21'; ctx.lineWidth = 4 * scaleF; ctx.beginPath(); ctx.moveTo(65 * scaleF, -45 * scaleF); ctx.lineTo(75 * scaleF, (-35 + Math.sin(d.frame)*5) * scaleF); ctx.stroke();
+                ctx.save(); ctx.translate(70 * scaleF, -50 * scaleF); ctx.rotate(neckRotation); ctx.translate(0, headYOffset);
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(15 * scaleF, -25 * scaleF); ctx.lineTo(55 * scaleF, -25 * scaleF); ctx.lineTo(55 * scaleF, -mouthOpen/2); ctx.lineTo(15 * scaleF, 0); ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(15 * scaleF, 0); ctx.lineTo(50 * scaleF, mouthOpen/2); ctx.lineTo(50 * scaleF, 0); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = 'white'; for(let i=0; i<4; i++) { ctx.fillRect((25 + i*8) * scaleF, -mouthOpen/2, 3 * scaleF, 5 * scaleF); ctx.fillRect((25 + i*8) * scaleF, mouthOpen/2, 3 * scaleF, -5 * scaleF); }
+                ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(25 * scaleF, -15 * scaleF, 4 * scaleF, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'black'; ctx.fillRect(25 * scaleF, -16 * scaleF, 2 * scaleF, 3 * scaleF); ctx.restore();
+                ctx.fillStyle = '#3f4d21'; ctx.beginPath(); ctx.moveTo(10 * scaleF, -45 * scaleF); ctx.quadraticCurveTo(-30 * scaleF, (-50 + Math.sin(d.frame)*15) * scaleF, -50 * scaleF, -10 * scaleF); ctx.lineTo(10 * scaleF, -30 * scaleF); ctx.fill();
                 ctx.restore();
             });
         }
