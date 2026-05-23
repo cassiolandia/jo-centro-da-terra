@@ -2425,11 +2425,12 @@
             drawDiamond();
             drawParticles();
             drawPlayer(timeSeconds);
-            drawArrows(); drawPlants(); drawDinosaurs(); drawStones();
+            drawArrows(); drawPlants(); drawDinosaurs();
             drawLightnings();
             drawNightAndFlashlight();
             drawRain();
             drawLightningFlash();
+            drawStones(); // Pedras magnéticas sempre na última camada (renderizadas por cima de tudo)
             ctx.restore();
 
             drawMeme();
