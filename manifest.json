@@ -1,0 +1,17 @@
+{
+  "name": "Viagem ao Centro da Terra 2D",
+  "short_name": "Centro da Terra",
+  "description": "Um jogo de corrida em 2D pelas profundezas da Terra, inspirado em Júlio Verne.",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#050200",
+  "theme_color": "#ff4500",
+  "icons": [
+    {
+      "src": "meme.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
