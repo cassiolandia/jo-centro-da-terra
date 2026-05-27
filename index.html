@@ -1481,6 +1481,7 @@
             const py = currentY;
             const w = player.width;
             const h = player.height;
+            const sc = Math.min(1, h / 70);
 
             // Lightning death: umbrella canopy burns away, only the stick remains
             if (gameState === 'DYING' && killerType === 'lightning') {
@@ -1638,21 +1639,21 @@
                 ctx.translate(-(player.x + player.width/2), -(currentY - player.height/2));
             }
 
-            const bounce = (gameState === 'PLAYING' || gameState === 'TRANSITION') ? Math.abs(Math.sin(time * 15)) * 6 : 0;
-            const swingFront = Math.sin(time * 15) * 15;
-            const swingBack = Math.sin(time * 15 + Math.PI) * 15;
+            const bounce = (gameState === 'PLAYING' || gameState === 'TRANSITION') ? Math.abs(Math.sin(time * 15)) * 6 * sc : 0;
+            const swingFront = Math.sin(time * 15) * 15 * sc;
+            const swingBack = Math.sin(time * 15 + Math.PI) * 15 * sc;
 
             // Sombra
             if (!(gameState === 'DYING' && killerType === 'plant' && deathTimer > 25)) {
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.beginPath();
-                ctx.ellipse(px + w/2, py, w/2, 5, 0, 0, Math.PI * 2);
+                ctx.ellipse(px + w/2, py, w/2, 5 * sc, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
 
             // Pernas (ambas visíveis na vista lateral)
             ctx.strokeStyle = player.colorBody;
-            ctx.lineWidth = 7;
+            ctx.lineWidth = 7 * sc;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(px + w/2 - 2, py - 18 + bounce);
@@ -1667,14 +1668,14 @@
             // MOCHILA (MAIOR E COM DETALHES)
             ctx.fillStyle = '#3d2616'; 
             ctx.beginPath();
-            ctx.roundRect(px - 22, py - h + bounce + 2, 28, 48, 8);
+            ctx.roundRect(px - 22 * sc, py - h + bounce + 2 * sc, 28 * sc, 48 * sc, 8 * sc);
             ctx.fill();
             // Fivelas da mochila
             ctx.fillStyle = '#5c4033';
-            ctx.fillRect(px - 22, py - h + bounce + 17, 28, 6);
+            ctx.fillRect(px - 22 * sc, py - h + bounce + 17 * sc, 28 * sc, 6 * sc);
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(px - 18, py - h + bounce + 18, 4, 4);
-            ctx.fillRect(px - 2, py - h + bounce + 18, 4, 4);
+            ctx.fillRect(px - 18 * sc, py - h + bounce + 18 * sc, 4 * sc, 4 * sc);
+            ctx.fillRect(px - 2 * sc, py - h + bounce + 18 * sc, 4 * sc, 4 * sc);
 
             // CORPO COM TEXTURA
             ctx.fillStyle = player.colorBody;
@@ -1691,82 +1692,82 @@
             // CABEÇA
             ctx.fillStyle = player.colorHead;
             ctx.beginPath();
-            ctx.arc(px + w/2 + 5, py - h + bounce - 5, 15, 0, Math.PI * 2);
+            ctx.arc(px + w/2 + 5 * sc, py - h + bounce - 5 * sc, 15 * sc, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = 'black';
-            ctx.fillRect(px + w/2 + 12, py - h + bounce - 10, 4, 4);
+            ctx.fillRect(px + w/2 + 12 * sc, py - h + bounce - 10 * sc, 4 * sc, 4 * sc);
 
             // ACESSÓRIOS
             if (player.hasHat) {
                 ctx.fillStyle = '#292524';
-                ctx.fillRect(px + w/2 - 15, py - h + bounce - 20, 35, 5); 
-                ctx.fillRect(px + w/2 - 10, py - h + bounce - 35, 25, 15); 
+                ctx.fillRect(px + w/2 - 15 * sc, py - h + bounce - 20 * sc, 35 * sc, 5 * sc); 
+                ctx.fillRect(px + w/2 - 10 * sc, py - h + bounce - 35 * sc, 25 * sc, 15 * sc); 
             } else {
                 ctx.fillStyle = '#451a03';
                 ctx.beginPath();
-                ctx.arc(px + w/2 + 3, py - h + bounce - 10, 16, Math.PI, Math.PI*2);
+                ctx.arc(px + w/2 + 3 * sc, py - h + bounce - 10 * sc, 16 * sc, Math.PI, Math.PI*2);
                 ctx.fill();
             }
 
             // Braço único (vista lateral - apenas o braço da frente visível)
-            const shoulderX = px + w/2 + 5;
-            const shoulderY = py - h + bounce + 12;
+            const shoulderX = px + w/2 + 5 * sc;
+            const shoulderY = py - h + bounce + 12 * sc;
 
             if (gameState === 'DYING' && (currentPhase === 3 || currentPhase === 2)) {
                 // Morrendo com objeto: braço solto
                 ctx.strokeStyle = player.colorBody;
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 6 * sc;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(shoulderX, shoulderY);
-                ctx.lineTo(shoulderX + swingFront, py - 15 + bounce);
+                ctx.lineTo(shoulderX + swingFront, py - 15 * sc + bounce);
                 ctx.stroke();
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
-                ctx.arc(shoulderX + swingFront, py - 15 + bounce, 3.5, 0, Math.PI * 2);
+                ctx.arc(shoulderX + swingFront, py - 15 * sc + bounce, 3.5 * sc, 0, Math.PI * 2);
                 ctx.fill();
             } else if (currentPhase === 3) {
                 // Segurando guarda-chuva - mão parada na barriga
-                const handX = px + w/2 + 8;
-                const handY = py - 28 + bounce;
+                const handX = px + w/2 + 8 * sc;
+                const handY = py - 28 * sc + bounce;
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
-                ctx.arc(handX, handY, 5, 0, Math.PI * 2);
+                ctx.arc(handX, handY, 5 * sc, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = player.colorBody;
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 6 * sc;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(shoulderX, shoulderY);
-                ctx.lineTo(handX + 2, handY);
+                ctx.lineTo(handX + 2 * sc, handY);
                 ctx.stroke();
             } else if (currentPhase === 2) {
                 // Segurando lanterna - mão parada na barriga
-                const handX = px + w/2 + 7;
-                const handY = py - 28 + bounce;
+                const handX = px + w/2 + 7 * sc;
+                const handY = py - 28 * sc + bounce;
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
-                ctx.arc(handX, handY, 5, 0, Math.PI * 2);
+                ctx.arc(handX, handY, 5 * sc, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = player.colorBody;
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 6 * sc;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(shoulderX, shoulderY);
-                ctx.lineTo(handX + 2, handY);
+                ctx.lineTo(handX + 2 * sc, handY);
                 ctx.stroke();
             } else {
                 // Balançando livremente
                 ctx.strokeStyle = player.colorBody;
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 6 * sc;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(shoulderX, shoulderY);
-                ctx.lineTo(shoulderX + swingFront, py - 15 + bounce);
+                ctx.lineTo(shoulderX + swingFront, py - 15 * sc + bounce);
                 ctx.stroke();
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
-                ctx.arc(shoulderX + swingFront, py - 15 + bounce, 3.5, 0, Math.PI * 2);
+                ctx.arc(shoulderX + swingFront, py - 15 * sc + bounce, 3.5 * sc, 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -1774,11 +1775,11 @@
 
             // Guarda-chuva na Fase 3 (apenas canopi e cabo - mão/braço já desenhados acima)
             if (currentPhase === 3 && gameState !== 'DYING') {
-                const handleX = px + w/2 + 8;
-                const handleY = py - 28 + bounce;
-                const domeX = px + w/2 + 5;
-                const domeY = py - h + bounce - 35;
-                const radius = 34;
+                const handleX = px + w/2 + 8 * sc;
+                const handleY = py - 28 * sc + bounce;
+                const domeX = px + w/2 + 5 * sc;
+                const domeY = py - h + bounce - 35 * sc;
+                const radius = 34 * sc;
 
                 // Canopy (cúpula)
                 ctx.fillStyle = '#1e3a5f';
@@ -1787,7 +1788,7 @@
                 ctx.lineTo(domeX, domeY);
                 ctx.fill();
                 ctx.strokeStyle = '#0f2540';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2 * sc;
                 ctx.beginPath();
                 ctx.arc(domeX, domeY, radius, Math.PI + 0.25, -0.25);
                 ctx.lineTo(domeX, domeY);
@@ -1799,7 +1800,7 @@
                     const ex = domeX + Math.cos(angle) * radius;
                     const ey = domeY + Math.sin(angle) * radius;
                     ctx.strokeStyle = '#3a7abd';
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 2 * sc;
                     ctx.beginPath();
                     ctx.moveTo(domeX, domeY);
                     ctx.lineTo(ex, ey);
@@ -1808,7 +1809,7 @@
 
                 // Handle (cabo) - da cúpula até a mão na barriga
                 ctx.strokeStyle = '#5c4033';
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 4 * sc;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(domeX, domeY);
@@ -1817,7 +1818,7 @@
 
                 // Hook (curva no final do cabo)
                 ctx.beginPath();
-                ctx.arc(handleX + 3, handleY + 3, 5, -Math.PI / 2, Math.PI / 2);
+                ctx.arc(handleX + 3 * sc, handleY + 3 * sc, 5 * sc, -Math.PI / 2, Math.PI / 2);
                 ctx.stroke();
             }
         }
@@ -2381,28 +2382,36 @@
 
                 // Near-miss detection: manobra incrível escapando do perigo
                 if (gameState === 'PLAYING' && memeCooldown <= 0 && showMemeTimer <= 0 && !player.isInvincible) {
-                    const pad = 5;
+                    const pad = 15;
                     const cY = player.y + player.jumpOffset;
                     const nmL = player.x - pad, nmR = player.x + player.width + pad;
                     const nmT = cY - player.height - pad, nmB = cY + pad;
                     let nearMiss = false;
-                    const allHazards = [arrows, plants, dinosaurs, stones];
-                    for (let list of allHazards) {
-                        for (let obj of list) {
-                            if (!obj.active || (obj.lane !== undefined && obj.lane !== player.lane)) continue;
-                            let oL, oR, oT, oB;
-                            if (obj.radius) {
-                                oL = obj.x - obj.radius; oR = obj.x + obj.radius;
-                                oT = obj.y - obj.radius; oB = obj.y + obj.radius;
-                            } else {
-                                oL = obj.x; oR = obj.x + (obj.width || 60);
-                                oT = obj.y - (obj.height || 50); oB = obj.y;
-                            }
-                            if (oL < nmR && oR > nmL && oT < nmB && oB > nmT) {
-                                nearMiss = true; break;
-                            }
-                        }
-                        if (nearMiss) break;
+                    // Verificar todos os arrays de perigo
+                    for (let obj of arrows) {
+                        if (!obj.active || obj.lane !== player.lane) continue;
+                        const oT = obj.y - obj.height;
+                        if (obj.x < nmR && obj.x + obj.width > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                    }
+                    if (!nearMiss) for (let obj of plants) {
+                        if (obj.lane !== player.lane) continue;
+                        const oR = obj.x + obj.width;
+                        const oT = obj.y - obj.height;
+                        if (obj.x < nmR && oR > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                    }
+                    if (!nearMiss) for (let obj of dinosaurs) {
+                        if (obj.lane !== player.lane) continue;
+                        const oR = obj.x + obj.width;
+                        const oT = obj.y - obj.height;
+                        if (obj.x < nmR && oR > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                    }
+                    if (!nearMiss) for (let obj of stones) {
+                        if (player.lane !== 0) continue;
+                        const oR = obj.x + obj.radius;
+                        const oL = obj.x - obj.radius;
+                        const oT = obj.y - obj.radius;
+                        const oB = obj.y + obj.radius;
+                        if (oL < nmR && oR > nmL && oT < nmB && oB > nmT) { nearMiss = true; break; }
                     }
                     if (nearMiss) { memePending = true; memePendingTimer = 0; memeCooldown = 180; }
                 }
