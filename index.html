@@ -255,6 +255,10 @@
                     </button>
                 </div>
             </div>
+            <!-- Imagem do meme no rodapé do menu -->
+            <div class="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
+                <img src="meme.png" class="h-12 md:h-20 object-contain opacity-30" alt="">
+            </div>
         </div>
 
         <!-- Controlos no ecrã para telemóveis e desktop -->
@@ -525,7 +529,10 @@
             nightCanvas.height = canvas.height;
             
             // Ajustar dinamicamente o gap com base na altura da tela
-            GAP_ENTRE_ANDARES = Math.max(75, Math.min(125, canvas.height * 0.20));
+            const isMobile = window.innerWidth < 768;
+            GAP_ENTRE_ANDARES = isMobile
+                ? Math.max(50, Math.min(90, canvas.height * 0.16))
+                : Math.max(75, Math.min(125, canvas.height * 0.20));
             
             // Recalcular posições das pistas com base no centro da tela
             const startY = (canvas.height / 2) + GAP_ENTRE_ANDARES * 0.8;
