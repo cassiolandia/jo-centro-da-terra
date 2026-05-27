@@ -257,7 +257,7 @@
             </div>
             <!-- Imagem do meme no rodapé do menu -->
             <div class="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
-                <img src="meme.png" class="h-12 md:h-20 object-contain opacity-30" alt="">
+                <img src="meme.png" class="h-36 md:h-60 object-contain opacity-30" alt="">
             </div>
         </div>
 
@@ -294,7 +294,10 @@
                         CONTINUAR ▶️
                     </button>
                     <button id="btn-restart" class="w-full py-3 bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(255,0,0,0.3)] transition-all transform hover:scale-105">
-                        VOLTAR AO INÍCIO 🏠
+                        REINICIAR 🔄
+                    </button>
+                    <button id="btn-main-menu" class="w-full py-3 bg-gradient-to-r from-blue-800 to-indigo-600 hover:from-blue-700 hover:to-indigo-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(50,0,255,0.3)] transition-all transform hover:scale-105">
+                        MENU PRINCIPAL 🏠
                     </button>
                 </div>
             </div>
@@ -323,6 +326,7 @@
         const btnFullscreen = document.getElementById('btn-fullscreen');
         const btnResume = document.getElementById('btn-resume');
         const btnRestart = document.getElementById('btn-restart');
+        const btnMainMenu = document.getElementById('btn-main-menu');
         const modeSelection = document.getElementById('mode-selection');
         const phaseSelection = document.getElementById('phase-selection');
         const btnAdventure = document.getElementById('btn-adventure');
@@ -706,6 +710,10 @@
                 currentPhase = selectedPhase || 1;
                 startGame(selectedPhase || 1, gameMode);
             }
+        });
+        btnMainMenu.addEventListener('click', () => {
+            pauseScreen.classList.add('hidden');
+            resetToMenu();
         });
 
         btnAdventure.addEventListener('click', () => {
@@ -1667,7 +1675,7 @@
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
-            const bsc = sc < 1 ? sc * 0.65 : sc;
+            const bsc = sc < 1 ? sc * 0.5 : sc;
             ctx.fillStyle = '#3d2616'; 
             ctx.beginPath();
             ctx.roundRect(px - 22 * bsc, py - h * sc + bounce + 2 * bsc, 28 * bsc, 48 * bsc, 8 * bsc);
