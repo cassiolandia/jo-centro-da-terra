@@ -1169,18 +1169,19 @@
             
             // Desenhar a lanterna física na mão do jogador (sujeita a cameraY original do ctx)
             ctx.save();
+            const lf = sc < 1 ? 0.6 : 1;
             const localPy = currentY - player.height / 2 + 15;
             ctx.fillStyle = '#111';
-            ctx.fillRect(px - 15, localPy - 6, 25, 12);
+            ctx.fillRect(px - 15 * lf, localPy - 6 * lf, 25 * lf, 12 * lf);
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(px + 10, localPy - 6, 6, 12);
+            ctx.fillRect(px + 10 * lf, localPy - 6 * lf, 6 * lf, 12 * lf);
             
-            const glow = ctx.createRadialGradient(px + 15, localPy, 0, px + 15, localPy, 30);
+            const glow = ctx.createRadialGradient(px + 15 * lf, localPy, 0, px + 15 * lf, localPy, 30 * lf);
             glow.addColorStop(0, 'rgba(251, 191, 36, 0.6)');
             glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(px + 15, localPy, 30, 0, Math.PI*2);
+            ctx.arc(px + 15 * lf, localPy, 30 * lf, 0, Math.PI*2);
             ctx.fill();
             
             ctx.restore();
@@ -1657,12 +1658,12 @@
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(px + w/2 - 2, py - 18 * sc + bounce);
-            ctx.lineTo(px + w/2 - 2 + swingBack, py + 10 * sc + bounce);
+            ctx.lineTo(px + w/2 - 2 + swingBack, py + 8 * sc + bounce);
             ctx.stroke();
 
             ctx.beginPath();
             ctx.moveTo(px + w/2 + 2, py - 18 * sc + bounce);
-            ctx.lineTo(px + w/2 + 2 + swingFront, py + 10 * sc + bounce);
+            ctx.lineTo(px + w/2 + 2 + swingFront, py + 8 * sc + bounce);
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
