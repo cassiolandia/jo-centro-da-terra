@@ -1121,6 +1121,7 @@
 
         function drawNightAndFlashlight() {
             if (currentPhase !== 2) return;
+            const sc = window.innerWidth < 768 ? 0.6 : 1;
             
             // Fundo escuro cobrindo tudo (escuridão noturna) num canvas temporário
             nightCtx.clearRect(0, 0, nightCanvas.width, nightCanvas.height);
@@ -1666,16 +1667,17 @@
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
+            const bsc = sc < 1 ? sc * 0.65 : sc;
             ctx.fillStyle = '#3d2616'; 
             ctx.beginPath();
-            ctx.roundRect(px - 22 * sc, py - h * sc + bounce + 2 * sc, 28 * sc, 48 * sc, 8 * sc);
+            ctx.roundRect(px - 22 * bsc, py - h * sc + bounce + 2 * bsc, 28 * bsc, 48 * bsc, 8 * bsc);
             ctx.fill();
             // Fivelas da mochila
             ctx.fillStyle = '#5c4033';
-            ctx.fillRect(px - 22 * sc, py - h * sc + bounce + 17 * sc, 28 * sc, 6 * sc);
+            ctx.fillRect(px - 22 * bsc, py - h * sc + bounce + 17 * bsc, 28 * bsc, 6 * bsc);
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(px - 18 * sc, py - h * sc + bounce + 18 * sc, 4 * sc, 4 * sc);
-            ctx.fillRect(px - 2 * sc, py - h * sc + bounce + 18 * sc, 4 * sc, 4 * sc);
+            ctx.fillRect(px - 18 * bsc, py - h * sc + bounce + 18 * bsc, 4 * bsc, 4 * bsc);
+            ctx.fillRect(px - 2 * bsc, py - h * sc + bounce + 18 * bsc, 4 * bsc, 4 * bsc);
 
             // CORPO COM TEXTURA
             ctx.fillStyle = player.colorBody;
@@ -2391,19 +2393,19 @@
                     for (let obj of arrows) {
                         if (!obj.active || obj.lane !== player.lane) continue;
                         const oT = obj.y - obj.height;
-                        if (obj.x < nmR && obj.x + obj.width > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                        if (obj.x < nmR && obj.x + obj.width > nmL && obj.x + obj.width > player.x + player.width && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
                     }
                     if (!nearMiss) for (let obj of plants) {
                         if (obj.lane !== player.lane) continue;
                         const oR = obj.x + obj.width;
                         const oT = obj.y - obj.height;
-                        if (obj.x < nmR && oR > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                        if (obj.x < nmR && oR > nmL && oR > player.x + player.width && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
                     }
                     if (!nearMiss) for (let obj of dinosaurs) {
                         if (obj.lane !== player.lane) continue;
                         const oR = obj.x + obj.width;
                         const oT = obj.y - obj.height;
-                        if (obj.x < nmR && oR > nmL && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
+                        if (obj.x < nmR && oR > nmL && oR > player.x + player.width && oT < nmB && obj.y > nmT) { nearMiss = true; break; }
                     }
                     if (!nearMiss) for (let obj of stones) {
                         if (player.lane !== 0) continue;
@@ -2411,7 +2413,7 @@
                         const oL = obj.x - obj.radius;
                         const oT = obj.y - obj.radius;
                         const oB = obj.y + obj.radius;
-                        if (oL < nmR && oR > nmL && oT < nmB && oB > nmT) { nearMiss = true; break; }
+                        if (oL < nmR && oR > nmL && oR > player.x + player.width && oT < nmB && oB > nmT) { nearMiss = true; break; }
                     }
                     if (nearMiss) { memePending = true; memePendingTimer = 0; memeCooldown = 180; }
                 }
