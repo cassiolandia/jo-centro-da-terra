@@ -1656,13 +1656,13 @@
             ctx.lineWidth = 7 * sc;
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.moveTo(px + w/2 - 2, py - 18 + bounce);
-            ctx.lineTo(px + w/2 - 2 + swingBack, py + 10 + bounce);
+            ctx.moveTo(px + w/2 - 2, py - 18 * sc + bounce);
+            ctx.lineTo(px + w/2 - 2 + swingBack, py + 10 * sc + bounce);
             ctx.stroke();
 
             ctx.beginPath();
-            ctx.moveTo(px + w/2 + 2, py - 18 + bounce);
-            ctx.lineTo(px + w/2 + 2 + swingFront, py + 10 + bounce);
+            ctx.moveTo(px + w/2 + 2, py - 18 * sc + bounce);
+            ctx.lineTo(px + w/2 + 2 + swingFront, py + 10 * sc + bounce);
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
