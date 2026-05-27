@@ -1169,19 +1169,18 @@
             
             // Desenhar a lanterna física na mão do jogador (sujeita a cameraY original do ctx)
             ctx.save();
-            const lf = sc < 1 ? 0.6 : 1;
             const localPy = currentY - player.height / 2 + 15;
             ctx.fillStyle = '#111';
-            ctx.fillRect(px - 15 * lf, localPy - 6 * lf, 25 * lf, 12 * lf);
+            ctx.fillRect(px - 15 * sc, localPy - 6 * sc, 25 * sc, 12 * sc);
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(px + 10 * lf, localPy - 6 * lf, 6 * lf, 12 * lf);
+            ctx.fillRect(px + 10 * sc, localPy - 6 * sc, 6 * sc, 12 * sc);
             
-            const glow = ctx.createRadialGradient(px + 15 * lf, localPy, 0, px + 15 * lf, localPy, 30 * lf);
+            const glow = ctx.createRadialGradient(px + 15 * sc, localPy, 0, px + 15 * sc, localPy, 30 * sc);
             glow.addColorStop(0, 'rgba(251, 191, 36, 0.6)');
             glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(px + 15 * lf, localPy, 30 * lf, 0, Math.PI*2);
+            ctx.arc(px + 15 * sc, localPy, 30 * sc, 0, Math.PI*2);
             ctx.fill();
             
             ctx.restore();
@@ -1482,7 +1481,7 @@
             const py = currentY;
             const w = player.width;
             const h = player.height;
-            const sc = Math.min(1, h / 70);
+            const sc = window.innerWidth < 768 ? 0.6 : 1;
 
             // Lightning death: umbrella canopy burns away, only the stick remains
             if (gameState === 'DYING' && killerType === 'lightning') {
@@ -1648,7 +1647,7 @@
             if (!(gameState === 'DYING' && killerType === 'plant' && deathTimer > 25)) {
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.beginPath();
-                ctx.ellipse(px + w/2, py, w/2, 5 * sc, 0, 0, Math.PI * 2);
+                ctx.ellipse(px + w/2 * sc, py, w/2 * sc, 5 * sc, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -1657,62 +1656,62 @@
             ctx.lineWidth = 7 * sc;
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.moveTo(px + w/2 - 2, py - 18 * sc + bounce);
-            ctx.lineTo(px + w/2 - 2 + swingBack, py + 8 * sc + bounce);
+            ctx.moveTo(px + w/2 * sc - 2 * sc, py - 18 * sc + bounce);
+            ctx.lineTo(px + w/2 * sc - 2 * sc + swingBack, py + 10 * sc + bounce);
             ctx.stroke();
 
             ctx.beginPath();
-            ctx.moveTo(px + w/2 + 2, py - 18 * sc + bounce);
-            ctx.lineTo(px + w/2 + 2 + swingFront, py + 8 * sc + bounce);
+            ctx.moveTo(px + w/2 * sc + 2 * sc, py - 18 * sc + bounce);
+            ctx.lineTo(px + w/2 * sc + 2 * sc + swingFront, py + 10 * sc + bounce);
             ctx.stroke();
 
             // MOCHILA (MAIOR E COM DETALHES)
             ctx.fillStyle = '#3d2616'; 
             ctx.beginPath();
-            ctx.roundRect(px - 22 * sc, py - h + bounce + 2 * sc, 28 * sc, 48 * sc, 8 * sc);
+            ctx.roundRect(px - 22 * sc, py - h * sc + bounce + 2 * sc, 28 * sc, 48 * sc, 8 * sc);
             ctx.fill();
             // Fivelas da mochila
             ctx.fillStyle = '#5c4033';
-            ctx.fillRect(px - 22 * sc, py - h + bounce + 17 * sc, 28 * sc, 6 * sc);
+            ctx.fillRect(px - 22 * sc, py - h * sc + bounce + 17 * sc, 28 * sc, 6 * sc);
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(px - 18 * sc, py - h + bounce + 18 * sc, 4 * sc, 4 * sc);
-            ctx.fillRect(px - 2 * sc, py - h + bounce + 18 * sc, 4 * sc, 4 * sc);
+            ctx.fillRect(px - 18 * sc, py - h * sc + bounce + 18 * sc, 4 * sc, 4 * sc);
+            ctx.fillRect(px - 2 * sc, py - h * sc + bounce + 18 * sc, 4 * sc, 4 * sc);
 
             // CORPO COM TEXTURA
             ctx.fillStyle = player.colorBody;
             ctx.beginPath();
-            ctx.roundRect(px, py - h + bounce, w, h - 20, 10);
+            ctx.roundRect(px, py - h * sc + bounce, w * sc, (h - 20) * sc, 10 * sc);
             ctx.fill();
             // Textura de "tecido" (pequenos pontos)
             ctx.fillStyle = 'rgba(0,0,0,0.1)';
             for(let i=0; i<5; i++) {
-                ctx.fillRect(px + 5 + i*6, py - h + bounce + 10, 2, 2);
-                ctx.fillRect(px + 5 + i*6, py - h + bounce + 30, 2, 2);
+                ctx.fillRect(px + 5 * sc + i*6 * sc, py - h * sc + bounce + 10 * sc, 2 * sc, 2 * sc);
+                ctx.fillRect(px + 5 * sc + i*6 * sc, py - h * sc + bounce + 30 * sc, 2 * sc, 2 * sc);
             }
 
             // CABEÇA
             ctx.fillStyle = player.colorHead;
             ctx.beginPath();
-            ctx.arc(px + w/2 + 5 * sc, py - h + bounce - 5 * sc, 15 * sc, 0, Math.PI * 2);
+            ctx.arc(px + w/2 * sc + 5 * sc, py - h * sc + bounce - 5 * sc, 15 * sc, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = 'black';
-            ctx.fillRect(px + w/2 + 12 * sc, py - h + bounce - 10 * sc, 4 * sc, 4 * sc);
+            ctx.fillRect(px + w/2 * sc + 12 * sc, py - h * sc + bounce - 10 * sc, 4 * sc, 4 * sc);
 
             // ACESSÓRIOS
             if (player.hasHat) {
                 ctx.fillStyle = '#292524';
-                ctx.fillRect(px + w/2 - 15 * sc, py - h + bounce - 20 * sc, 35 * sc, 5 * sc); 
-                ctx.fillRect(px + w/2 - 10 * sc, py - h + bounce - 35 * sc, 25 * sc, 15 * sc); 
+                ctx.fillRect(px + w/2 * sc - 15 * sc, py - h * sc + bounce - 20 * sc, 35 * sc, 5 * sc); 
+                ctx.fillRect(px + w/2 * sc - 10 * sc, py - h * sc + bounce - 35 * sc, 25 * sc, 15 * sc); 
             } else {
                 ctx.fillStyle = '#451a03';
                 ctx.beginPath();
-                ctx.arc(px + w/2 + 3 * sc, py - h + bounce - 10 * sc, 16 * sc, Math.PI, Math.PI*2);
+                ctx.arc(px + w/2 * sc + 3 * sc, py - h * sc + bounce - 10 * sc, 16 * sc, Math.PI, Math.PI*2);
                 ctx.fill();
             }
 
             // Braço único (vista lateral - apenas o braço da frente visível)
-            const shoulderX = px + w/2 + 5 * sc;
-            const shoulderY = py - h + bounce + 12 * sc;
+            const shoulderX = px + w/2 * sc + 5 * sc;
+            const shoulderY = py - h * sc + bounce + 12 * sc;
 
             if (gameState === 'DYING' && (currentPhase === 3 || currentPhase === 2)) {
                 // Morrendo com objeto: braço solto
@@ -1729,7 +1728,7 @@
                 ctx.fill();
             } else if (currentPhase === 3) {
                 // Segurando guarda-chuva - mão parada na barriga
-                const handX = px + w/2 + 8 * sc;
+                const handX = px + w/2 * sc + 8 * sc;
                 const handY = py - 28 * sc + bounce;
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
@@ -1744,7 +1743,7 @@
                 ctx.stroke();
             } else if (currentPhase === 2) {
                 // Segurando lanterna - mão parada na barriga
-                const handX = px + w/2 + 7 * sc;
+                const handX = px + w/2 * sc + 7 * sc;
                 const handY = py - 28 * sc + bounce;
                 ctx.fillStyle = player.colorHead;
                 ctx.beginPath();
@@ -1776,10 +1775,10 @@
 
             // Guarda-chuva na Fase 3 (apenas canopi e cabo - mão/braço já desenhados acima)
             if (currentPhase === 3 && gameState !== 'DYING') {
-                const handleX = px + w/2 + 8 * sc;
+                const handleX = px + w/2 * sc + 8 * sc;
                 const handleY = py - 28 * sc + bounce;
-                const domeX = px + w/2 + 5 * sc;
-                const domeY = py - h + bounce - 35 * sc;
+                const domeX = px + w/2 * sc + 5 * sc;
+                const domeY = py - h * sc + bounce - 35 * sc;
                 const radius = 34 * sc;
 
                 // Canopy (cúpula)
